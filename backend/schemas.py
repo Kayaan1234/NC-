@@ -7,26 +7,18 @@ class LoginRequest(BaseModel):
     model_config = {"str_strip_whitespace" : True}
 
 class RegisterRequest(BaseModel):
-    username: str = Field(min_length=3)
+    username: str = Field(min_length=3, pattern = r"^[a-zA-Z0-9_]+$")
     email : EmailStr
     password : str = Field(min_length=8)
     confirm_password : str
 
     model_config = {"str_strip_whitespace": True}
 
-    @field_validator("username")
-    @classmethod
-    def username_valid(cls, v: str) -> str:
-        
-        if not re.match(r"^[a-zA-Z0-9_]+$", v):
-            raise ValueError("Username may only contain letters, numbers, and underscores")
-        return v
+   
     
     @field_validator("password")
     @classmethod
     def password_strong(cls, v: str) -> str:
-        if len(v) < 8:
-            raise ValueError("Password must be at least 8 characters")
         if not re.search(r"[A-Z]", v):
             raise ValueError("Password must contain at least one uppercase letter")
         if not re.search(r"[0-9]", v):
@@ -40,10 +32,12 @@ class RegisterRequest(BaseModel):
     
 class AuthResponse(BaseModel):
     message : str
-    user_id : int
+    user_id : int 
+    verified : bool = Field(default=False)
 
 class UserPublic(BaseModel):
    
     id: int
     username: str
     email: EmailStr
+    verified : bool = Field(default=False)
