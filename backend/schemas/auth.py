@@ -1,6 +1,8 @@
 from pydantic import BaseModel, EmailStr, field_validator, model_validator, Field
 import re
 
+from uuid import UUID
+
 class LoginRequest(BaseModel):
     email : EmailStr
     password : str
@@ -32,12 +34,20 @@ class RegisterRequest(BaseModel):
     
 class AuthResponse(BaseModel):
     message : str
-    user_id : int 
+    user_id : UUID
     verified : bool = Field(default=False)
 
 class UserPublic(BaseModel):
-   
-    id: int
+
+    id: UUID
     username: str
     email: EmailStr
     verified : bool = Field(default=False)
+
+class TokenPayload(BaseModel):
+    sub: UUID
+    exp: int
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"

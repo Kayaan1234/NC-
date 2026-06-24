@@ -1,9 +1,9 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
-DATABASE_URL = "sqlite:///./test.db"
+from backend.core.config import settings
 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+engine = create_engine(settings.DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine) #control whether changes are automatically committed to the database or not. If autocommit is set to True, changes will be committed automatically after each statement. If set to False, you need to explicitly call commit() to save changes. 
 
 class Base(DeclarativeBase): # declarative base class for defining database models
