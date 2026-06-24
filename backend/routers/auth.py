@@ -1,4 +1,5 @@
 
+from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException, Depends
 
 
@@ -10,6 +11,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 import bcrypt
 from uuid import UUID
+
+from backend.core.security import create_access_token, create_refresh_token
+from backend.core.config import settings
 
 router = APIRouter(
     prefix="/auth",
@@ -57,5 +61,16 @@ def login(body : LoginRequest, db: Annotated[Session, Depends(get_db)]):
     if not bcrypt.checkpw(body.password.encode('utf-8'), user.hashed_password.encode('utf-8')):
         raise HTTPException(status_code=400, detail="Invalid email or password")
     
+    access_token = create_access_token(str(user.id))
+    refresh_token, refresh_token_hash = create_refresh_token(str(user.id))
 
-    return TokenResponse(access_token="some_access_token", refresh_token="some_refresh_token")
+    # Store refresh token hash in the database
+    refresh_token_entry = models.RefreshToken(
+        user_id=user.id,
+        token_hash=refresh_token_hash,
+        expires_at=datetime.utcnow() + timedelta(days=settings.REFRESH_TIMEOUT_DAYS)
+    )
+    db.add(refresh_token_entry)
+    db.commit()
+
+    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
