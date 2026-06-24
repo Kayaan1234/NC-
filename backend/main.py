@@ -1,11 +1,15 @@
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from scalar_fastapi import get_scalar_api_reference
 from backend.routers.auth import router as auth_router 
 
-from pydantic import BaseModel
 
+
+
+from backend.database import engine, Base
+
+Base.metadata.create_all(bind=engine) #creates the database tables based on the defined models if they don't already exist
                                                                                                                                              
  
 
