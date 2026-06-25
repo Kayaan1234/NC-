@@ -44,6 +44,8 @@ class UserPublic(BaseModel):
     email: EmailStr
     verified : bool = Field(default=False)
 
+    model_config={"from_attributes": True}
+
 class TokenPayload(BaseModel):
     sub: UUID
     exp: int
