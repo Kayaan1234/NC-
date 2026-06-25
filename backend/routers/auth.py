@@ -1,19 +1,21 @@
 
-from datetime import datetime, timedelta
-from fastapi import APIRouter, HTTPException, Depends
+from datetime import datetime, timedelta, timezone
+from fastapi import APIRouter, HTTPException, Depends, status
 
 
 from backend import models
-from backend.schemas.auth import RegisterRequest, AuthResponse, LoginRequest, TokenResponse
+from backend.schemas.auth import RegisterRequest, AuthResponse, LoginRequest, TokenResponse, RefreshRequest
 from backend.database import get_db
 from typing import Annotated
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, update
 import bcrypt
 from uuid import UUID
+import hashlib
 
 from backend.core.security import create_access_token, create_refresh_token
 from backend.core.config import settings
+from backend.core.deps import get_current_user
 
 router = APIRouter(
     prefix="/auth",
@@ -68,9 +70,50 @@ def login(body : LoginRequest, db: Annotated[Session, Depends(get_db)]):
     refresh_token_entry = models.RefreshToken(
         user_id=user.id,
         token_hash=refresh_token_hash,
-        expires_at=datetime.utcnow() + timedelta(days=settings.REFRESH_TIMEOUT_DAYS)
+        expires_at=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=settings.REFRESH_TIMEOUT_DAYS)
     )
     db.add(refresh_token_entry)
     db.commit()
 
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+
+@router.post("/refresh", response_model = TokenResponse)
+def refresh(body : RefreshRequest, db : Annotated[Session, Depends(get_db)]):
+    token_hash = hashlib.sha256(body.refresh_token.encode()).hexdigest()
+
+    result =  db.execute(
+        select(models.RefreshToken).where(models.RefreshToken.token_hash == token_hash)
+    )
+    token = result.scalar_one_or_none()
+
+    if not token or token.revoked or token.expires_at < datetime.now(timezone.utc).replace(tzinfo=None):
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+    access_token = create_access_token(str(token.user_id))
+
+    # optional: rotate the refresh token
+
+    new_raw_token, new_raw_token_hash = create_refresh_token(str(token.user_id))
+    token.revoked = True
+    new_refresh = models.RefreshToken(
+        user_id=token.user_id,
+        token_hash=new_raw_token_hash,
+        expires_at=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=settings.REFRESH_TIMEOUT_DAYS)
+    )
+    db.add(new_refresh)
+    db.commit()
+
+    return TokenResponse(access_token=access_token, refresh_token=new_raw_token)
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout(body : RefreshRequest, current_user: Annotated[models.User, Depends(get_current_user)], db : Annotated[Session, Depends(get_db)]) -> None:
+    token_hash = hashlib.sha256(body.refresh_token.encode()).hexdigest()
+    db.execute(
+        update(models.RefreshToken)
+        .where(
+            models.RefreshToken.token_hash == token_hash,
+            models.RefreshToken.user_id == current_user.id,
+        )
+        .values(revoked = True)
+    )
+    db.commit()
+    

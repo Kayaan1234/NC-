@@ -1,12 +1,12 @@
 import jwt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import secrets
 from backend.core.config import settings
 import hashlib
 
 
 def create_access_token(user_id: str)-> str:
-    expire = datetime.utcnow() + timedelta(minutes=settings.TIMEOUT_MINUTES)
+    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.TIMEOUT_MINUTES)
     payload = {
         "sub": user_id,
         "exp": expire
