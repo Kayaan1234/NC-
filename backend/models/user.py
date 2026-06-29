@@ -1,17 +1,17 @@
 from datetime import datetime
-from sqlalchemy import Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy import Integer, String, Boolean, DateTime, ForeignKey, Uuid
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from backend.database import Base
 import uuid
-from sqlalchemy.dialects.postgresql import UUID
 
 import backend.models.RefreshToken
 
 class User(Base):
     __tablename__ = "users"
 
-    id : Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
+    # Dialect-agnostic UUID: native uuid on Postgres, CHAR(32) on SQLite.
+    id : Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, index=True, default=uuid.uuid4)
     username : Mapped[str] = mapped_column(String(100), unique=True, index=True)
     email : Mapped[str] = mapped_column(String(100), unique=True, index=True)
     hashed_password : Mapped[str] = mapped_column(String(200), nullable=False)

@@ -9,6 +9,7 @@ from backend.database import get_db
 from typing import Annotated
 from sqlalchemy.orm import Session
 from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 import bcrypt
 from uuid import UUID
 import hashlib
@@ -30,13 +31,17 @@ router = APIRouter(
                                                                                                                                                                                                  
 @router.post("/register", response_model = AuthResponse)
 def register(body : RegisterRequest, db: Annotated[Session, Depends(get_db)]): #session is a database session that is automatically provided by FastAPI's dependency injection system. It allows the function to interact with the database without having to manually create and manage a session.
+    # NOTE: kept as a sync `def` route on purpose. The DB session and bcrypt are
+    # both blocking; FastAPI runs sync routes in a threadpool, so they don't block
+    # the event loop. An `async def` here would block it.
+
     # Check if user already exists
     existing_user = db.execute(
         select(models.User).where((models.User.username == body.username) | (models.User.email == body.email))
     ).scalars().first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Username or email already registered")
-    
+
     # Create new user
     new_user = models.User(
         username=body.username,
@@ -44,7 +49,13 @@ def register(body : RegisterRequest, db: Annotated[Session, Depends(get_db)]): #
         hashed_password=bcrypt.hashpw(body.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
     )
     db.add(new_user)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Two concurrent registrations can both pass the check above and race to
+        # insert; the unique constraint catches the loser here instead of 500ing.
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Username or email already registered")
     db.refresh(new_user)
 
     # convert SQLAlchemy UUID type to python's uuid.UUID to satisfy type checker

@@ -4,11 +4,10 @@ from fastapi import APIRouter, HTTPException, Depends
 
 from backend import models
 from backend.schemas.auth import UserPublic
-from backend.database import get_db
+
 from typing import Annotated
-from sqlalchemy.orm import Session
-from sqlalchemy import select
-import bcrypt
+
+
 from uuid import UUID
 
 from backend.core.deps import get_current_user

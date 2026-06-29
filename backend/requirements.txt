@@ -1,5 +1,13 @@
 fastapi
 uvicorn
 pydantic
-sqlalchemy
 pydantic-settings
+sqlalchemy
+email-validator
+bcrypt
+pyjwt
+scalar-fastapi
+# Postgres driver (used when DATABASE_URL points at postgresql://)
+psycopg[binary]
+# Schema migrations for the Postgres cutover
+alembic
