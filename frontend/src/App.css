@@ -1,0 +1,472 @@
+/* Layout + page styles (theme tokens live in index.css). */
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* --- Nav ------------------------------------------------------------------ */
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.1rem clamp(1rem, 5vw, 3rem);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: rgba(6, 9, 20, 0.72);
+  backdrop-filter: blur(12px);
+  z-index: 10;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--text);
+  font-weight: 700;
+}
+.brand:hover {
+  text-decoration: none;
+}
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, var(--forward), var(--accent));
+  color: #04121a;
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: 0.85rem;
+  box-shadow: 0 0 20px rgba(45, 226, 230, 0.3);
+}
+.brand-pp {
+  color: var(--forward);
+}
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+.nav-links a {
+  color: var(--text-dim);
+  font-weight: 500;
+  font-size: 0.92rem;
+}
+.nav-links a:hover {
+  color: var(--text);
+  text-decoration: none;
+}
+.nav-links a.active {
+  color: var(--forward);
+}
+.nav-user {
+  color: var(--text-faint);
+  font-size: 0.82rem;
+  padding-left: 0.25rem;
+}
+.btn-sm {
+  padding: 0.45rem 0.9rem;
+  font-size: 0.85rem;
+  border-radius: 8px;
+}
+
+.content {
+  flex: 1;
+  width: 100%;
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: clamp(1.5rem, 4vw, 3.5rem) clamp(1rem, 5vw, 3rem);
+}
+
+.footer {
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 0.78rem;
+  padding: 2rem 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.page-loading {
+  color: var(--text-dim);
+  padding: 4rem 1rem;
+  text-align: center;
+}
+
+/* --- Shared bits ---------------------------------------------------------- */
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.72rem;
+  color: var(--forward);
+  margin: 0 0 0.9rem;
+}
+.lede {
+  color: var(--text-dim);
+  font-size: 1.05rem;
+  line-height: 1.6;
+  max-width: 52ch;
+}
+.grad-fwd {
+  background: linear-gradient(90deg, var(--forward), #8ef6f8);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.grad-bwd {
+  background: linear-gradient(90deg, var(--backward), #ffd29c);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.full {
+  width: 100%;
+}
+code {
+  font-family: var(--mono);
+}
+
+/* --- Hero ----------------------------------------------------------------- */
+.hero {
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  gap: clamp(1.5rem, 4vw, 3rem);
+  align-items: center;
+  margin-bottom: clamp(3rem, 8vw, 6rem);
+}
+.hero h1 {
+  font-size: clamp(2rem, 4.5vw, 3.3rem);
+  margin: 0 0 1.1rem;
+}
+.hero-cta {
+  display: flex;
+  gap: 0.9rem;
+  margin-top: 1.8rem;
+  flex-wrap: wrap;
+}
+.hero-viz {
+  padding: 0;
+  overflow: hidden;
+  min-height: 380px;
+  display: flex;
+}
+
+/* --- Animation ------------------------------------------------------------ */
+.nn-anim {
+  position: relative;
+  width: 100%;
+  min-height: 380px;
+  flex: 1;
+}
+.nn-anim canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.nn-hud {
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  display: flex;
+  gap: 1rem;
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  color: var(--text-dim);
+  background: rgba(6, 9, 20, 0.55);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.4rem 0.7rem;
+  backdrop-filter: blur(6px);
+}
+.nn-hud-phase {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--text);
+  min-width: 9.5em;
+}
+.nn-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  box-shadow: 0 0 8px currentColor;
+}
+
+/* --- Ladder section ------------------------------------------------------- */
+.section-kicker {
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  margin-bottom: 0.6rem;
+}
+.ladder h2 {
+  font-size: clamp(1.5rem, 3vw, 2.1rem);
+  margin: 0 0 2rem;
+  max-width: 22ch;
+}
+.ladder-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+.ladder-card {
+  padding: 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+.ladder-card:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-3px);
+}
+.ladder-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+}
+.ladder-rung {
+  color: var(--forward);
+  letter-spacing: 0.12em;
+}
+.ladder-sub {
+  color: var(--text-faint);
+}
+.ladder-card h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+.ladder-code {
+  display: block;
+  background: rgba(6, 9, 20, 0.6);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.7rem;
+  font-size: 0.78rem;
+  color: var(--forward);
+  overflow-x: auto;
+}
+.ladder-note {
+  margin-top: 1.5rem;
+  color: var(--text-dim);
+  max-width: 60ch;
+}
+.ladder-note em {
+  color: var(--text);
+  font-style: italic;
+}
+
+/* --- Auth pages ----------------------------------------------------------- */
+.auth-page {
+  display: flex;
+  justify-content: center;
+  padding-top: clamp(1rem, 4vw, 3rem);
+}
+.auth-card {
+  width: 100%;
+  max-width: 410px;
+  padding: 2rem;
+}
+.auth-card h1 {
+  margin: 0 0 1.5rem;
+  font-size: 1.7rem;
+}
+.auth-alt {
+  margin-top: 1.3rem;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.narrow-card {
+  max-width: 460px;
+}
+.narrow-card h1 {
+  font-size: 1.7rem;
+  margin: 0 0 1rem;
+}
+
+/* Stacked full-width actions (resend / go to dashboard / etc.) */
+.stack-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin-top: 1.5rem;
+}
+
+/* The address we emailed, called out in mono. */
+.callout {
+  background: rgba(6, 9, 20, 0.6);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 0.7rem 0.85rem;
+  color: var(--forward);
+  font-size: 0.9rem;
+  margin: 0.4rem 0 1.2rem;
+  word-break: break-all;
+}
+
+.resend-note {
+  margin-top: 1.1rem;
+  line-height: 1.5;
+}
+
+/* Alert variants beyond the error one in index.css. */
+.alert-ok {
+  background: rgba(61, 220, 151, 0.1);
+  border: 1px solid rgba(61, 220, 151, 0.3);
+  color: var(--ok);
+}
+.alert-warn {
+  background: var(--backward-soft);
+  border: 1px solid rgba(255, 159, 69, 0.3);
+  color: var(--backward);
+}
+
+/* --- Account -------------------------------------------------------------- */
+/* Single centered column so the identity card and every form card share one
+   width — kills the lone grid cell and the left-biased dead space. */
+.account {
+  max-width: 600px;
+  margin: 0 auto;
+}
+.account .account-form,
+.account .account-identity {
+  max-width: none;
+  width: 100%;
+}
+.account .account-form {
+  margin-top: 1.25rem;
+}
+
+/* Identity summary: three label/value rows in one card, evenly divided —
+   symmetric and robust to a long email (no cramped 3-up grid). */
+.account-identity {
+  margin-top: 2rem;
+  padding: 0.3rem 1.5rem;
+}
+.identity-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.95rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.identity-row:last-child {
+  border-bottom: none;
+}
+.identity-row .dash-value {
+  text-align: right;
+  word-break: break-all;
+}
+
+.account-gate-note {
+  margin-top: 1.25rem;
+}
+.account-gate-note a {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+}
+.account-form {
+  margin-top: 2rem;
+  padding: 1.8rem;
+  max-width: 560px;
+}
+.account-form h2 {
+  margin: 0 0 0.8rem;
+  font-size: 1.25rem;
+}
+.account-form .lede {
+  font-size: 0.95rem;
+  margin: 0 0 1.4rem;
+}
+.dash-account-link {
+  text-align: left;
+  margin-top: 1.8rem;
+}
+
+/* Delete-account card: same form shell, danger-tinted border so it reads as a
+   destructive zone distinct from the email/password cards above it. */
+.account-danger {
+  border-color: rgba(255, 107, 107, 0.3);
+}
+.account-danger h2 {
+  color: var(--danger);
+}
+.delete-confirm-q {
+  color: var(--text);
+  font-size: 0.95rem;
+  margin: 0 0 0.4rem;
+}
+
+/* --- Dashboard ------------------------------------------------------------ */
+.dash h1 {
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  margin: 0 0 0.8rem;
+}
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-top: 2rem;
+}
+.dash-field {
+  padding: 1.2rem 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.dash-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-faint);
+}
+.dash-value {
+  font-size: 1.05rem;
+  color: var(--text);
+}
+.dash-value.small {
+  font-size: 0.82rem;
+  word-break: break-all;
+  color: var(--text-dim);
+}
+.pill {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-family: var(--mono);
+}
+.pill-ok {
+  background: rgba(61, 220, 151, 0.14);
+  color: var(--ok);
+  border: 1px solid rgba(61, 220, 151, 0.3);
+}
+.pill-warn {
+  background: var(--backward-soft);
+  color: var(--backward);
+  border: 1px solid rgba(255, 159, 69, 0.3);
+}
+
+/* --- Responsive ----------------------------------------------------------- */
+@media (max-width: 820px) {
+  .hero {
+    grid-template-columns: 1fr;
+  }
+  .hero-viz {
+    min-height: 320px;
+    order: -1;
+  }
+  .ladder-grid {
+    grid-template-columns: 1fr;
+  }
+  .dash-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,6 +1,25 @@
+# --- Python ---
 __pycache__/
 *.pyc
 venv/
-.vscode/
+.venv/
+.mypy_cache/
+
+# --- Node / frontend build (frontend/ has its own .gitignore too) ---
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# --- Secrets & local config (never ship) ---
+*.env
 *.db
-.env
+
+# --- Editor / OS cruft ---
+.vscode/
+.idea/
+.DS_Store
+**/.DS_Store
+
+# --- Markdown / planning docs (not shipped to production) ---
+*.md

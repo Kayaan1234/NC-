@@ -36,3 +36,20 @@ def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db: Annotate
 
     return user
 
+
+def require_verified_user(
+    current_user: Annotated[models.User, Depends(get_current_user)],
+) -> models.User:
+    """Like get_current_user, but rejects unverified accounts with 403.
+
+    Use this (not get_current_user) on any endpoint that must be gated behind a
+    verified email — it enforces the gate server-side so a client can't reach
+    protected resources by calling the API directly. 403, not 401: the caller is
+    authenticated, just not permitted yet."""
+    if not current_user.verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Email address not verified",
+        )
+    return current_user
+

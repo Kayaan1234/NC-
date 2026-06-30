@@ -6,6 +6,7 @@ from backend.database import Base
 import uuid
 
 import backend.models.RefreshToken
+import backend.models.EmailToken
 
 class User(Base):
     __tablename__ = "users"
@@ -18,6 +19,10 @@ class User(Base):
     is_active : Mapped[bool] = mapped_column(Boolean, default=True)
     created_at : Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     verified : Mapped[bool] = mapped_column(Boolean, default=False)
+    # Timestamp of the last email change; gates the once-per-day change cooldown.
+    # NULL until the user changes their email for the first time.
+    email_changed_at : Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     refresh_tokens : Mapped[list["backend.models.RefreshToken.RefreshToken"]] = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
+    email_tokens : Mapped[list["backend.models.EmailToken.EmailToken"]] = relationship("EmailToken", back_populates="user", cascade="all, delete-orphan")
     

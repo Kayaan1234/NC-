@@ -1,0 +1,188 @@
+/* ---------------------------------------------------------------------------
+   Neural-computing theme.
+   Deep-space navy, electric-cyan "forward" signal, warm-amber "backward"
+   (gradient) signal. Mono accents nod to the C++-from-scratch roadmap.
+--------------------------------------------------------------------------- */
+
+:root {
+  /* Surfaces */
+  --bg: #060914;
+  --bg-elev: #0c1226;
+  --bg-card: rgba(18, 26, 51, 0.72);
+  --border: rgba(120, 160, 255, 0.16);
+  --border-strong: rgba(120, 160, 255, 0.35);
+
+  /* Text */
+  --text: #e7ecff;
+  --text-dim: #97a3c7;
+  --text-faint: #5b668a;
+
+  /* Signal colors */
+  --forward: #2de2e6;   /* activations flowing input -> output */
+  --forward-soft: rgba(45, 226, 230, 0.15);
+  --backward: #ff9f45;  /* gradients flowing output -> input */
+  --backward-soft: rgba(255, 159, 69, 0.15);
+  --accent: #7b8cff;
+
+  --danger: #ff6b6b;
+  --ok: #3ddc97;
+
+  --radius: 14px;
+  --mono: 'JetBrains Mono', 'SF Mono', ui-monospace, 'Cascadia Code', monospace;
+  --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  color-scheme: dark;
+  font-family: var(--sans);
+  color: var(--text);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100vh;
+}
+
+body {
+  background:
+    radial-gradient(1200px 700px at 78% -10%, rgba(45, 226, 230, 0.10), transparent 60%),
+    radial-gradient(900px 600px at 8% 110%, rgba(123, 140, 255, 0.12), transparent 55%),
+    var(--bg);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* faint grid overlay for the "computational lattice" feel */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(120, 160, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120, 160, 255, 0.035) 1px, transparent 1px);
+  background-size: 44px 44px;
+  z-index: 0;
+}
+
+a {
+  color: var(--forward);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+h1, h2, h3 {
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+/* --- Buttons -------------------------------------------------------------- */
+.btn {
+  font: inherit;
+  font-weight: 600;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-elev);
+  color: var(--text);
+  padding: 0.7rem 1.25rem;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 0.08s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.btn:hover {
+  border-color: var(--forward);
+  box-shadow: 0 0 0 1px var(--forward-soft), 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+.btn:active {
+  transform: translateY(1px);
+}
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--forward), var(--accent));
+  color: #04121a;
+  border-color: transparent;
+}
+.btn-primary:hover {
+  box-shadow: 0 0 28px rgba(45, 226, 230, 0.35);
+}
+.btn-ghost {
+  background: transparent;
+}
+.btn-danger {
+  background: rgba(255, 107, 107, 0.1);
+  border-color: rgba(255, 107, 107, 0.4);
+  color: var(--danger);
+}
+.btn-danger:hover {
+  background: rgba(255, 107, 107, 0.16);
+  box-shadow: 0 0 22px rgba(255, 107, 107, 0.22);
+}
+
+/* --- Forms ---------------------------------------------------------------- */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+.field label {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  letter-spacing: 0.02em;
+}
+.field input {
+  font: inherit;
+  background: rgba(6, 9, 20, 0.6);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 0.7rem 0.85rem;
+  color: var(--text);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.field input:focus {
+  outline: none;
+  border-color: var(--forward);
+  box-shadow: 0 0 0 3px var(--forward-soft);
+}
+.field .hint {
+  font-size: 0.72rem;
+  color: var(--text-faint);
+}
+
+.alert {
+  border-radius: 9px;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+.alert-error {
+  background: rgba(255, 107, 107, 0.1);
+  border: 1px solid rgba(255, 107, 107, 0.35);
+  color: #ffb4b4;
+}
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  backdrop-filter: blur(10px);
+}
+
+.mono {
+  font-family: var(--mono);
+}
+
+/* shared layout wrapper sits above the grid overlay */
+#root {
+  position: relative;
+  z-index: 1;
+}
