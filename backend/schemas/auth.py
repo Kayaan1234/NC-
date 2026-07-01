@@ -89,3 +89,10 @@ class ResetPasswordResponse(BaseModel):
 
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
+
+class ForgotPasswordToken(BaseModel):
+    token: str
+    new_password: StrongPassword
+
+class ValidateResetTokenRequest(BaseModel):
+    token: str

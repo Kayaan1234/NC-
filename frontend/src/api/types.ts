@@ -49,3 +49,15 @@ export interface ResetPasswordPayload {
   current_password: string
   new_password: string
 }
+
+export interface ForgotPasswordPayload {
+  email: string
+}
+
+/** /auth/reset-password (the token flow) — new_password gated by the same
+ *  StrongPassword rules as registration; no current password (the emailed
+ *  token is the proof of identity). */
+export interface ResetPasswordTokenPayload {
+  token: string
+  new_password: string
+}

@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard'
 import VerifyEmail from './pages/VerifyEmail'
 import VerifyRequired from './pages/VerifyRequired'
 import Account from './pages/Account'
+import ForgotPassword from './pages/ForgotPassword'
 import PasswordReset from './pages/PasswordReset'
 import AccountDeleted from './pages/AccountDeleted'
 
@@ -18,6 +19,9 @@ export default function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        {/* Public: reached from the login page; posts the email and shows a
+            generic "if it's registered…" confirmation (no enumeration). */}
+        <Route path="/forgot-password" element={<ForgotPassword />} />
         {/* Public: the link lands here from the verification email, and the
             clicker may have no session (different device/browser). */}
         <Route path="/verify-email" element={<VerifyEmail />} />

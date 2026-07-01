@@ -3,16 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { api, ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { useCountdown, formatCountdown } from '../auth/useCountdown'
+import { passwordError } from '../auth/passwordPolicy'
 import { EMAIL_CHANGE_COOLDOWN_HOURS, VERIFICATION_TTL_HOURS } from '../authConfig'
-
-// Mirrors the StrongPassword rules in backend/schemas/auth.py so we fail fast,
-// client-side, with the same message the backend would return.
-function passwordError(pw: string): string | null {
-  if (pw.length < 8 || pw.length > 30) return 'Password must be 8–30 characters.'
-  if (!/[A-Z]/.test(pw)) return 'Password needs at least one uppercase letter.'
-  if (!/[0-9]/.test(pw)) return 'Password needs at least one digit.'
-  return null
-}
 
 export default function Account() {
   const { user } = useAuth()

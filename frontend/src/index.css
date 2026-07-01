@@ -77,6 +77,20 @@ a:hover {
   text-decoration: underline;
 }
 
+/* A <button> that reads as an inline text link (used for in-place actions that
+   aren't navigations, e.g. "try a different email"). */
+.linklike {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--forward);
+  cursor: pointer;
+}
+.linklike:hover {
+  text-decoration: underline;
+}
+
 h1, h2, h3 {
   letter-spacing: -0.02em;
   line-height: 1.1;
@@ -84,6 +98,14 @@ h1, h2, h3 {
 
 /* --- Buttons -------------------------------------------------------------- */
 .btn {
+  /* inline-flex + centering so the class works identically on <button> and on
+     an <a> (react-router <Link>) — an anchor is inline by default, which would
+     otherwise ignore width:100% (.full) and left-align its text. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  text-decoration: none;
   font: inherit;
   font-weight: 600;
   border: 1px solid var(--border-strong);

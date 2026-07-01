@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks
 
 from backend import models
-from backend.schemas.auth import RegisterRequest, AuthResponse, LoginRequest, TokenResponse, RefreshRequest, ResendVerificationResponse, VerifyEmailRequest, ForgotPasswordRequest
+from backend.schemas.auth import ForgotPasswordToken, RegisterRequest, AuthResponse, LoginRequest, ResetPasswordRequest, TokenResponse, RefreshRequest, ResendVerificationResponse, VerifyEmailRequest, ForgotPasswordRequest, ValidateResetTokenRequest
 from backend.database import get_db, SessionLocal
 from typing import Annotated
 from sqlalchemy.orm import Session
@@ -203,3 +203,57 @@ def forgot_password(body: ForgotPasswordRequest, background_tasks: BackgroundTas
     background_tasks.add_task(_process_forgot_password, body.email)
 
     return ResendVerificationResponse(message="If the email is registered, a password reset link has been sent")
+
+def _load_valid_reset_token(token: str, db: Session) -> models.EmailToken:
+    """Look up a RESET_PASSWORD token and 400 unless it's live and unused.
+
+    Shared by /reset-password (which then consumes it) and
+    /reset-password/validate (which only checks it), so the landing page can
+    show 'link expired' vs. the form before the user types anything, using the
+    exact same criteria the consume path enforces."""
+    token_hash = hash_token(token)
+
+    email_token = db.execute(
+        select(models.EmailToken).where(models.EmailToken.token_hash == token_hash)
+    ).scalars().first()
+
+    if (
+        not email_token
+        or email_token.purpose != models.EmailTokenPurpose.RESET_PASSWORD
+        or email_token.used_at is not None
+        or email_token.expires_at < datetime.now(timezone.utc).replace(tzinfo=None)
+    ):
+        raise HTTPException(status_code=400, detail="Invalid or expired password reset link")
+
+    return email_token
+
+
+@router.post("/reset-password/validate", response_model=ResendVerificationResponse)
+def validate_reset_token(body: ValidateResetTokenRequest, db: Annotated[Session, Depends(get_db)]):
+    # Read-only: the landing page calls this on load to decide between the
+    # 'link expired' screen and the new-password form, without consuming the
+    # single-use token (a preview/scanner hitting it must not burn it either).
+    _load_valid_reset_token(body.token, db)
+    return ResendVerificationResponse(message="Reset link is valid")
+
+
+@router.post("/reset-password", response_model=ResendVerificationResponse)
+def reset_password(body: ForgotPasswordToken, db: Annotated[Session, Depends(get_db)]):
+    email_token = _load_valid_reset_token(body.token, db)
+
+    user = db.get(models.User, email_token.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Mark the token as used and update the user's password
+    email_token.used_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    user.hashed_password = bcrypt.hashpw(body.new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+    # Kill every session, so a stolen refresh token stops working the moment the password changes. Done in the same transaction as the password write: if
+    # the revocation failed on its own commit, the password would have changed while old sessions stayed alive — so both land together or neither does.
+    db.execute(
+        update(models.RefreshToken).where(models.RefreshToken.user_id == user.id).values(revoked=True)
+    )
+    db.commit()
+
+    return ResendVerificationResponse(message="Password has been reset successfully")   

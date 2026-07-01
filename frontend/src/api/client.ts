@@ -1,11 +1,13 @@
 import { tokenStore } from './tokenStore'
 import type {
   DeleteAccountPayload,
+  ForgotPasswordPayload,
   LoginPayload,
   MessageResponse,
   RegisterPayload,
   RegisterResponse,
   ResetPasswordPayload,
+  ResetPasswordTokenPayload,
   TokenResponse,
   UpdateEmailPayload,
   User,
@@ -128,4 +130,21 @@ export const api = {
   // 204 on success; the user row (and its tokens, via cascade) is gone.
   deleteAccount: (payload: DeleteAccountPayload) =>
     request<void>('/users/me', { method: 'DELETE', body: payload, auth: true }),
+
+  // Public. Always resolves with the same generic message whether or not the
+  // email is registered — the backend deliberately reveals nothing, so the UI
+  // must not branch on it either (no email enumeration).
+  forgotPassword: (payload: ForgotPasswordPayload) =>
+    request<MessageResponse>('/auth/forgot-password', { method: 'POST', body: payload }),
+
+  // Public, read-only. The reset landing page calls this on load to decide
+  // between the 'link expired' screen and the form; it does NOT consume the
+  // single-use token. Throws ApiError(400) on an invalid/expired/used token.
+  validateResetToken: (token: string) =>
+    request<MessageResponse>('/auth/reset-password/validate', { method: 'POST', body: { token } }),
+
+  // Public. Consumes the emailed token, sets the new password, and revokes every
+  // session server-side — so afterward route to login, don't auto-authenticate.
+  resetPasswordWithToken: (payload: ResetPasswordTokenPayload) =>
+    request<MessageResponse>('/auth/reset-password', { method: 'POST', body: payload }),
 }
