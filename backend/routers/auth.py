@@ -3,8 +3,8 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks
 
 from backend import models
-from backend.schemas.auth import RegisterRequest, AuthResponse, LoginRequest, TokenResponse, RefreshRequest, ResendVerificationResponse, VerifyEmailRequest
-from backend.database import get_db
+from backend.schemas.auth import RegisterRequest, AuthResponse, LoginRequest, TokenResponse, RefreshRequest, ResendVerificationResponse, VerifyEmailRequest, ForgotPasswordRequest
+from backend.database import get_db, SessionLocal
 from typing import Annotated
 from sqlalchemy.orm import Session
 from sqlalchemy import select, update
@@ -16,7 +16,7 @@ import hashlib
 from backend.core.security import create_access_token, create_refresh_token, hash_token
 from backend.core.config import settings
 from backend.core.deps import get_current_user
-from backend.core.verification import issue_email_verification
+from backend.core.verification import issue_email_verification, issue_password_reset
 
 router = APIRouter(
     prefix="/auth",
@@ -171,5 +171,35 @@ def verify_email(body: VerifyEmailRequest, db: Annotated[Session, Depends(get_db
 
     return ResendVerificationResponse(message="Email verified")
 
+def _process_forgot_password(email: str) -> None:
+    """Look up the email and, if it belongs to a real user, mint+send a reset
+    link. Runs entirely inside a BackgroundTask (after the response is flushed),
+    so the DB lookup, token write, and email send never affect response timing.
+
+    Uses its own SessionLocal() — the request's get_db() session is already
+    closed by the time this executes. Any failure is swallowed by design (see
+    the try/except): the client got its generic 200 and must not be able to
+    infer anything from a later error either."""
+    db = SessionLocal()
+    try:
+        user = db.execute(
+            select(models.User).where(models.User.email == email)
+        ).scalars().first()
+        if user:
+            issue_password_reset(user, db)
+    except Exception:
+        db.rollback()
+    finally:
+        db.close()
 
 
+@router.post("/forgot-password")
+def forgot_password(body: ForgotPasswordRequest, background_tasks: BackgroundTasks):
+    # Do the lookup + issue off the request path so the existing-email and
+    # unknown-email cases are indistinguishable by response time. Returning the
+    # same generic body without a timing tell is what actually prevents email
+    # enumeration here — the generic message alone doesn't, since a synchronous
+    # DB write for real users would leak their existence through latency.
+    background_tasks.add_task(_process_forgot_password, body.email)
+
+    return ResendVerificationResponse(message="If the email is registered, a password reset link has been sent")

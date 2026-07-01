@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from backend import models
 from backend.core.config import settings
-from backend.core.email import send_verification_email
+from backend.core.email import send_verification_email, send_password_reset_email
 from backend.core.security import generate_verification_token
 
 
@@ -79,3 +79,42 @@ def issue_email_verification(
         to_email=user.email,
         token=raw_token,
     )
+
+def issue_password_reset(
+    user: models.User,
+    db: Session,
+) -> None:
+    """Mint and email a fresh password reset link for `user`.
+
+    Unlike issue_email_verification, this sends the email synchronously and takes
+    no BackgroundTasks: the caller (forgot_password) already runs this whole
+    routine inside a BackgroundTask with its own session, so the request has
+    returned by the time we get here. Sending inline keeps the send inside that
+    same worker instead of trying to enqueue onto a request that's already gone.
+
+    Any still-live reset tokens are invalidated first, so only the newest link
+    works (limits the blast radius of a leaked older link). No resend cooldown is
+    enforced here yet — rate limiting is a deliberate follow-up.
+    """
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    db.execute(
+        update(models.EmailToken)
+        .where(
+            models.EmailToken.user_id == user.id,
+            models.EmailToken.purpose == models.EmailTokenPurpose.RESET_PASSWORD,
+            models.EmailToken.used_at.is_(None),
+        )
+        .values(used_at=now)
+    )
+
+    raw_token, token_hash = generate_verification_token()
+    db.add(models.EmailToken(
+        user_id=user.id,
+        token_hash=token_hash,
+        purpose=models.EmailTokenPurpose.RESET_PASSWORD,
+        expires_at=now + timedelta(hours=settings.RESET_TTL_HOURS),
+    ))
+    db.commit()
+
+    send_password_reset_email(to_email=user.email, token=raw_token)

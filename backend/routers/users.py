@@ -109,4 +109,4 @@ def update_email(
         raise HTTPException(status_code=400, detail="Email already in use")
     return ResendVerificationResponse(message="Email updated, verification email sent")
 
-    
+

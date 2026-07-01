@@ -86,3 +86,6 @@ class ResetPasswordRequest(BaseModel):
 
 class ResetPasswordResponse(BaseModel):
     message: str
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr

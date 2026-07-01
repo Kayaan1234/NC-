@@ -139,7 +139,6 @@ function ChangeEmailCard() {
 }
 
 function ResetPasswordCard() {
-  const { clearSession } = useAuth()
   const navigate = useNavigate()
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -162,11 +161,13 @@ function ResetPasswordCard() {
     setBusy(true)
     try {
       await api.resetPassword({ current_password: currentPassword, new_password: newPassword })
-      // Server revoked every refresh token, including this one. Route to the
-      // confirmation page FIRST (it's public), then drop the local session — so
-      // the protected /account route doesn't flash a redirect to /login.
+      // Server revoked every refresh token, including this one. Hand off to the
+      // public confirmation page, which drops the now-dead local session on
+      // mount and then counts down to /login. We must NOT clear the session
+      // here: setting user=null while the protected /account route is still
+      // mounted makes its guard redirect to /login before the confirmation
+      // page can render.
       navigate('/password-reset', { state: { fromReset: true } })
-      clearSession()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong')
       setBusy(false)
@@ -227,7 +228,6 @@ function ResetPasswordCard() {
 }
 
 function DeleteAccountCard() {
-  const { clearSession } = useAuth()
   const navigate = useNavigate()
   const [password, setPassword] = useState('')
   const [confirming, setConfirming] = useState(false)
@@ -250,10 +250,11 @@ function DeleteAccountCard() {
     setBusy(true)
     try {
       await api.deleteAccount({ current_password: password })
-      // Navigate to the (public) goodbye page first, then clear the now-dead
-      // session, so the protected /account route doesn't redirect to /login.
+      // Hand off to the public goodbye page, which drops the now-dead local
+      // session on mount. We must NOT clear it here: setting user=null while
+      // the protected /account route is still mounted makes its guard redirect
+      // to /login before the goodbye page can render.
       navigate('/account-deleted', { state: { fromDelete: true } })
-      clearSession()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong')
       setConfirming(false)
