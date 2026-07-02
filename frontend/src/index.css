@@ -1,14 +1,17 @@
 /* ---------------------------------------------------------------------------
    Neural-computing theme.
    Deep-space navy, electric-cyan "forward" signal, warm-amber "backward"
-   (gradient) signal. Mono accents nod to the C++-from-scratch roadmap.
+   (gradient) signal. Signals propagate; nothing sits in an isolated box.
+   Space Grotesk carries the display voice; JetBrains Mono is the instrument
+   voice (labels, code, HUD) — a nod to the C++-from-scratch roadmap.
 --------------------------------------------------------------------------- */
 
 :root {
   /* Surfaces */
   --bg: #060914;
   --bg-elev: #0c1226;
-  --bg-card: rgba(18, 26, 51, 0.72);
+  --bg-card: rgba(18, 26, 51, 0.66);
+  --bg-sunken: rgba(6, 9, 20, 0.6);
   --border: rgba(120, 160, 255, 0.16);
   --border-strong: rgba(120, 160, 255, 0.35);
 
@@ -27,9 +30,15 @@
   --danger: #ff6b6b;
   --ok: #3ddc97;
 
-  --radius: 14px;
+  /* Geometry — a single asymmetric radius read as the brand signature: the
+     top-left "input" corner is clipped, as if a signal enters there. */
+  --radius: 18px;
+  --radius-tl: 4px;
+  --radius-sm: 10px;
+
   --mono: 'JetBrains Mono', 'SF Mono', ui-monospace, 'Cascadia Code', monospace;
   --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --display: 'Space Grotesk', 'Inter', system-ui, sans-serif;
 
   color-scheme: dark;
   font-family: var(--sans);
@@ -49,23 +58,25 @@ body,
 
 body {
   background:
-    radial-gradient(1200px 700px at 78% -10%, rgba(45, 226, 230, 0.10), transparent 60%),
-    radial-gradient(900px 600px at 8% 110%, rgba(123, 140, 255, 0.12), transparent 55%),
+    radial-gradient(1200px 720px at 82% -12%, rgba(45, 226, 230, 0.12), transparent 60%),
+    radial-gradient(1000px 680px at 4% 112%, rgba(123, 140, 255, 0.14), transparent 55%),
+    radial-gradient(760px 520px at 100% 55%, rgba(255, 159, 69, 0.06), transparent 60%),
     var(--bg);
   background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
 }
 
-/* faint grid overlay for the "computational lattice" feel */
+/* A field of faint nodes rather than a rigid lattice — a substrate of neurons
+   waiting to fire, fading out toward the edges so it reads as depth. */
 body::before {
   content: '';
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background-image:
-    linear-gradient(rgba(120, 160, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(120, 160, 255, 0.035) 1px, transparent 1px);
-  background-size: 44px 44px;
+  background-image: radial-gradient(rgba(123, 140, 255, 0.13) 1px, transparent 1.6px);
+  background-size: 32px 32px;
+  -webkit-mask-image: radial-gradient(ellipse 110% 80% at 50% 42%, #000 45%, transparent 88%);
+  mask-image: radial-gradient(ellipse 110% 80% at 50% 42%, #000 45%, transparent 88%);
   z-index: 0;
 }
 
@@ -92,8 +103,10 @@ a:hover {
 }
 
 h1, h2, h3 {
-  letter-spacing: -0.02em;
-  line-height: 1.1;
+  font-family: var(--display);
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+  font-weight: 600;
 }
 
 /* --- Buttons -------------------------------------------------------------- */
@@ -108,32 +121,42 @@ h1, h2, h3 {
   text-decoration: none;
   font: inherit;
   font-weight: 600;
+  letter-spacing: -0.01em;
   border: 1px solid var(--border-strong);
   background: var(--bg-elev);
   color: var(--text);
-  padding: 0.7rem 1.25rem;
-  border-radius: 10px;
+  padding: 0.72rem 1.3rem;
+  border-radius: 999px;
   cursor: pointer;
-  transition: transform 0.08s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: transform 0.12s cubic-bezier(0.34, 1.4, 0.64, 1),
+    border-color 0.15s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 .btn:hover {
   border-color: var(--forward);
-  box-shadow: 0 0 0 1px var(--forward-soft), 0 8px 24px rgba(0, 0, 0, 0.35);
+  transform: translateY(-1px);
+  box-shadow: 0 0 0 1px var(--forward-soft), 0 10px 26px rgba(0, 0, 0, 0.4);
 }
 .btn:active {
-  transform: translateY(1px);
+  transform: translateY(0);
 }
 .btn:disabled {
-  opacity: 0.55;
+  opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+.btn:focus-visible {
+  outline: 2px solid var(--forward);
+  outline-offset: 2px;
 }
 .btn-primary {
   background: linear-gradient(135deg, var(--forward), var(--accent));
-  color: #04121a;
+  color: #041018;
+  font-weight: 700;
   border-color: transparent;
 }
 .btn-primary:hover {
-  box-shadow: 0 0 28px rgba(45, 226, 230, 0.35);
+  box-shadow: 0 0 30px rgba(45, 226, 230, 0.4), 0 10px 26px rgba(0, 0, 0, 0.35);
 }
 .btn-ghost {
   background: transparent;
@@ -145,7 +168,8 @@ h1, h2, h3 {
 }
 .btn-danger:hover {
   background: rgba(255, 107, 107, 0.16);
-  box-shadow: 0 0 22px rgba(255, 107, 107, 0.22);
+  border-color: var(--danger);
+  box-shadow: 0 0 24px rgba(255, 107, 107, 0.24);
 }
 
 /* --- Forms ---------------------------------------------------------------- */
@@ -153,26 +177,28 @@ h1, h2, h3 {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  margin-bottom: 1rem;
+  margin-bottom: 1.05rem;
 }
 .field label {
-  font-size: 0.8rem;
+  font-size: 0.76rem;
   color: var(--text-dim);
   font-family: var(--mono);
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 .field input {
   font: inherit;
-  background: rgba(6, 9, 20, 0.6);
+  background: var(--bg-sunken);
   border: 1px solid var(--border);
-  border-radius: 9px;
-  padding: 0.7rem 0.85rem;
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 0.9rem;
   color: var(--text);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 .field input:focus {
   outline: none;
   border-color: var(--forward);
+  background: rgba(6, 9, 20, 0.85);
   box-shadow: 0 0 0 3px var(--forward-soft);
 }
 .field .hint {
@@ -181,10 +207,11 @@ h1, h2, h3 {
 }
 
 .alert {
-  border-radius: 9px;
-  padding: 0.65rem 0.85rem;
+  border-radius: var(--radius-sm);
+  padding: 0.7rem 0.9rem;
   font-size: 0.85rem;
-  margin-bottom: 1rem;
+  line-height: 1.5;
+  margin-bottom: 1.1rem;
 }
 .alert-error {
   background: rgba(255, 107, 107, 0.1);
@@ -192,19 +219,43 @@ h1, h2, h3 {
   color: #ffb4b4;
 }
 
+/* --- Cards ---------------------------------------------------------------- */
+/* Every surface carries the same asymmetric geometry and a faint "charged"
+   top edge — a hairline where the forward signal enters. It reads as one
+   family of cells, not a set of unrelated boxes. */
 .card {
+  position: relative;
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  backdrop-filter: blur(10px);
+  border-radius: var(--radius-tl) var(--radius) var(--radius) var(--radius);
+  backdrop-filter: blur(12px);
+}
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 14px;
+  right: 14px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--forward-soft) 20%, rgba(45, 226, 230, 0.5), var(--forward-soft) 80%, transparent);
+  opacity: 0.7;
+  pointer-events: none;
 }
 
 .mono {
   font-family: var(--mono);
 }
 
-/* shared layout wrapper sits above the grid overlay */
+/* shared layout wrapper sits above the substrate */
 #root {
   position: relative;
   z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }

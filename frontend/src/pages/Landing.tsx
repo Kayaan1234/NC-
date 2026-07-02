@@ -65,17 +65,25 @@ export default function Landing() {
       <section className="ladder">
         <p className="section-kicker mono">the abstraction ladder</p>
         <h2>One line at the top is hundreds of lines at the bottom.</h2>
-        <div className="ladder-grid">
-          {LADDER.map((r) => (
-            <div key={r.rung} className="ladder-card card">
-              <div className="ladder-head">
-                <span className="ladder-rung mono">{r.rung}</span>
-                <span className="ladder-sub mono">{r.sub}</span>
-              </div>
-              <h3>{r.name}</h3>
-              <code className="ladder-code">{r.code}</code>
-            </div>
-          ))}
+        <div className="spine">
+          <span className="spine-pulse" aria-hidden="true" />
+          <ol className="spine-rungs">
+            {LADDER.map((r) => (
+              <li key={r.rung} className="rung">
+                <div className="rung-marker" aria-hidden="true">
+                  <span className="rung-node" />
+                </div>
+                <div className="rung-card card">
+                  <div className="ladder-head">
+                    <span className="ladder-rung mono">{r.rung}</span>
+                    <span className="ladder-sub mono">{r.sub}</span>
+                  </div>
+                  <h3>{r.name}</h3>
+                  <code className="ladder-code">{r.code}</code>
+                </div>
+              </li>
+            ))}
+          </ol>
         </div>
         <p className="ladder-note">
           The interesting part is the part nobody shows: translating the maths into unabstracted, optimised code, and{' '}

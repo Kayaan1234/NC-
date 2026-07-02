@@ -14,6 +14,7 @@ from uuid import UUID
 import hashlib
 
 from backend.core.security import create_access_token, create_refresh_token, hash_token
+from backend.core.activity import has_active_refresh_token, touch_activity
 from backend.core.config import settings
 from backend.core.deps import get_current_user
 from backend.core.verification import issue_email_verification, issue_password_reset
@@ -88,6 +89,7 @@ def login(body : LoginRequest, db: Annotated[Session, Depends(get_db)]):
         token_hash=refresh_token_hash,
         expires_at=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=settings.REFRESH_TIMEOUT_DAYS)
     )
+    touch_activity(user)
     db.add(refresh_token_entry)
     db.commit()
 
@@ -116,6 +118,9 @@ def refresh(body : RefreshRequest, db : Annotated[Session, Depends(get_db)]):
         expires_at=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=settings.REFRESH_TIMEOUT_DAYS)
     )
     db.add(new_refresh)
+    # Ongoing activity heartbeat: refresh happens whenever the short-lived
+    # access token expires, so it's the signal that the user is still active.
+    touch_activity(token.user)
     db.commit()
 
     return TokenResponse(access_token=access_token, refresh_token=new_raw_token)
@@ -131,8 +136,13 @@ def logout(body : RefreshRequest, current_user: Annotated[models.User, Depends(g
         )
         .values(revoked = True)
     )
+    # Flush so the revoke above is visible to the EXISTS check below, then
+    # recompute is_active from the *remaining* valid tokens — other devices may
+    # still hold a live session, so we don't blindly set it False.
+    db.flush()
+    current_user.is_active = has_active_refresh_token(db, current_user.id)
     db.commit()
-    
+
 @router.post("/resend-verification")
 def resend_verification(background_tasks: BackgroundTasks, current_user: Annotated[models.User,Depends(get_current_user)], db: Annotated[Session, Depends(get_db)]):
     if current_user.verified:
@@ -254,6 +264,8 @@ def reset_password(body: ForgotPasswordToken, db: Annotated[Session, Depends(get
     db.execute(
         update(models.RefreshToken).where(models.RefreshToken.user_id == user.id).values(revoked=True)
     )
+    # Every session was just revoked, so there's no live session left.
+    user.is_active = False
     db.commit()
 
     return ResendVerificationResponse(message="Password has been reset successfully")   

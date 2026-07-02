@@ -16,9 +16,11 @@ class User(Base):
     username : Mapped[str] = mapped_column(String(100), unique=True, index=True)
     email : Mapped[str] = mapped_column(String(100), unique=True, index=True)
     hashed_password : Mapped[str] = mapped_column(String(200), nullable=False)
-    is_active : Mapped[bool] = mapped_column(Boolean, default=True)
+    # A fresh user has no refresh token, so they aren't active yet; flips to
+    # True on first login. See backend.core.activity for the semantics.
+    is_active : Mapped[bool] = mapped_column(Boolean, default=False)
     created_at : Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    last_login : Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_used : Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     verified : Mapped[bool] = mapped_column(Boolean, default=False)
     # Timestamp of the last email change; gates the once-per-day change cooldown.
     # NULL until the user changes their email for the first time.
@@ -26,4 +28,8 @@ class User(Base):
 
     refresh_tokens : Mapped[list["backend.models.RefreshToken.RefreshToken"]] = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
     email_tokens : Mapped[list["backend.models.EmailToken.EmailToken"]] = relationship("EmailToken", back_populates="user", cascade="all, delete-orphan")
-    
+    user_solutions : Mapped[list["backend.models.UserProgress.UserSolutions"]] = relationship("UserSolutions", back_populates="user", cascade="all, delete-orphan")
+    exercise_progress : Mapped[list["backend.models.UserProgress.UserExerciseProgress"]] = relationship("UserExerciseProgress", back_populates="user", cascade="all, delete-orphan")
+
+    user_hint_views : Mapped[list["backend.models.UserProgress.UserHintViews"]] = relationship("UserHintViews", back_populates="user", cascade="all, delete-orphan")
+    hint_sessions : Mapped[list["backend.models.LlmHint.LlmHintSession"]] = relationship("LlmHintSession", back_populates="user", cascade="all, delete-orphan")

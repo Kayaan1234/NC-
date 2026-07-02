@@ -57,6 +57,8 @@ def reset_password(
     db.execute(
         update(models.RefreshToken).where(models.RefreshToken.user_id == current_user.id).values(revoked=True)
     )
+    # Every session was just revoked, so there's no live session left.
+    current_user.is_active = False
     db.commit()
 
     return ResetPasswordResponse(message="Password updated successfully")
