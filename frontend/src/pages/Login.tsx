@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { ApiError } from '../api/client'
+import { useCountdown, formatCountdown } from '../auth/useCountdown'
 
 export default function Login() {
   const { login } = useAuth()
@@ -10,6 +11,7 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const { remaining, start } = useCountdown()
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -19,11 +21,19 @@ export default function Login() {
       const me = await login({ email, password })
       navigate(me.verified ? '/dashboard' : '/verify-required')
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong')
+      if (err instanceof ApiError) {
+        setError(err.message)
+        // Too many attempts: lock the button for the exact backend cooldown.
+        if (err.status === 429 && err.retryAfter) start(err.retryAfter)
+      } else {
+        setError('Something went wrong')
+      }
     } finally {
       setBusy(false)
     }
   }
+
+  const locked = remaining > 0
 
   return (
     <div className="auth-page">
@@ -54,8 +64,8 @@ export default function Login() {
               required
             />
           </div>
-          <button className="btn btn-primary full" type="submit" disabled={busy}>
-            {busy ? 'logging in…' : 'Log in'}
+          <button className="btn btn-primary full" type="submit" disabled={busy || locked}>
+            {busy ? 'logging in…' : locked ? `Try again in ${formatCountdown(remaining)}` : 'Log in'}
           </button>
         </form>
         <p className="auth-alt">

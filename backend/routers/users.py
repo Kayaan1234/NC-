@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Request, Response
 from sqlalchemy.exc import IntegrityError
 import bcrypt
 from backend.database import get_db
@@ -8,13 +8,15 @@ from backend.schemas.auth import *
 from sqlalchemy.orm import Session
 from typing import Annotated
 from fastapi import status
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from backend.core.verification import issue_email_verification
 
 from uuid import UUID
 
-from backend.core.deps import get_current_user
+from backend.core.deps import get_current_user, require_verified_user
 from backend.core.config import settings
+from backend.core.cookies import clear_refresh_cookie
+from backend.core.limiter import limiter
 
 
 router = APIRouter(
@@ -29,6 +31,7 @@ def get_current_user_route(current_user : Annotated[models.User, Depends(get_cur
     
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
 def delete_account(
+    response: Response,
     body: DeleteAccountRequest,
     current_user: Annotated[models.User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)]
@@ -38,10 +41,16 @@ def delete_account(
 
     db.delete(current_user)
     db.commit()
+
+    # The user (and its tokens, via cascade) is gone, so the browser's httpOnly
+    # refresh cookie is now a dead token. Only the server can clear an httpOnly
+    # cookie — mirror /auth/logout so it isn't left lingering until it expires.
+    clear_refresh_cookie(response)
     
 
 @router.patch("/me/password", response_model=ResetPasswordResponse)
 def reset_password(
+    response: Response,
     body: ResetPasswordRequest,
     current_user: Annotated[models.User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)]
@@ -61,11 +70,18 @@ def reset_password(
     current_user.is_active = False
     db.commit()
 
+    # The current session's token was just revoked too, so the browser's httpOnly
+    # refresh cookie is now dead. The frontend can't clear an httpOnly cookie
+    # itself — clear it here (like /auth/logout) so it isn't left lingering.
+    clear_refresh_cookie(response)
+
     return ResetPasswordResponse(message="Password updated successfully")
 
 #Future work - update so you can send email to old user email to let a user know that an email has been changed
 @router.patch("/me/email", response_model=ResendVerificationResponse)
+@limiter.limit(settings.RATE_LIMIT_EMAIL_SEND)
 def update_email(
+    request: Request,
     body: UpdateEmailRequest,
     background_tasks: BackgroundTasks,
     current_user: Annotated[models.User, Depends(get_current_user)],
@@ -111,4 +127,53 @@ def update_email(
         raise HTTPException(status_code=400, detail="Email already in use")
     return ResendVerificationResponse(message="Email updated, verification email sent")
 
+
+@router.get("/me/dashboard", response_model=DashboardOut)
+def get_dashboard(
+    current_user: Annotated[models.User, Depends(require_verified_user)],
+    db: Annotated[Session, Depends(get_db)]
+):
+    return get_user_dashboard(current_user, db)
+
+def get_user_dashboard(user: models.User, db: Session) -> DashboardOut:
+    rungs = db.execute(select(models.Rungs).order_by(models.Rungs.number)).scalars().all()  # Get all rungs ordered by their number
+
+    total_counts = dict(db.execute(  # Get total exercise counts per rung
+        select(
+            models.Exercise.rung_id,
+            func.count(models.Exercise.id)
+        ).group_by(models.Exercise.rung_id)
+    ).all())
+
+    # Get completed exercise counts per rung for the user
+    completed_counts = dict(
+        db.execute(
+            select(models.Exercise.rung_id, func.count(models.UserExerciseProgress.id))
+            .join(models.UserExerciseProgress, models.UserExerciseProgress.exercise_id == models.Exercise.id)
+            .where(
+                models.UserExerciseProgress.user_id == user.id,
+                models.UserExerciseProgress.status == models.ProgressStatus.COMPLETED,
+            )
+            .group_by(models.Exercise.rung_id)
+        ).all()
+    )
+
+    results = []
+    previous_completed = True  # rung 0 is always unlocked
+    current_rung_number = None
+    for rung in rungs:
+        total = total_counts.get(rung.id, 0)
+        completed = completed_counts.get(rung.id, 0)
+        is_completed = total > 0 and completed == total
+        rung_status = "completed" if is_completed else ("unlocked" if previous_completed else "locked")
+        # The current rung is the first unlocked-but-unfinished one — where the
+        # user should pick up. Once set, later unlocked rungs don't overwrite it.
+        if rung_status == "unlocked" and current_rung_number is None:
+            current_rung_number = rung.number
+        results.append(RungProgressOut(
+            id=rung.id, number=rung.number, slug=rung.slug, title=rung.title,
+            status=RungStatus(rung_status), exercises_completed=completed, exercises_total=total,
+        ))
+        previous_completed = is_completed
+    return DashboardOut(rungs=results, current_rung_number=current_rung_number)
 

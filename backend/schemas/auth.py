@@ -5,6 +5,8 @@ import re
 
 from uuid import UUID
 
+from enum import Enum as PyEnum
+
 
 def _password_strength(v: str) -> str:
     if not re.search(r"[A-Z]", v):
@@ -96,3 +98,24 @@ class ForgotPasswordToken(BaseModel):
 
 class ValidateResetTokenRequest(BaseModel):
     token: str
+
+class RungStatus(str, PyEnum):
+    LOCKED = "locked"
+    UNLOCKED = "unlocked"
+    COMPLETED = "completed"
+
+
+class RungProgressOut(BaseModel):
+    id: UUID
+    number: int
+    slug: str
+    title: str
+    status: RungStatus
+    exercises_completed: int
+    exercises_total: int
+
+    model_config = {"from_attributes": True}
+
+class DashboardOut(BaseModel):
+    rungs: list[RungProgressOut]
+    current_rung_number: int | None = None

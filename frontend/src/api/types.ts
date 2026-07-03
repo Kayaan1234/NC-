@@ -1,9 +1,13 @@
 // Mirrors backend/schemas/auth.py
 
+/** Body of /auth/login and /auth/refresh. The refresh token is NOT here — the
+ *  backend delivers it only as an httpOnly cookie. `user_id`/`verified` come
+ *  back too, but the client re-pulls /users/me for its user state, so only
+ *  `access_token` is actually consumed. */
 export interface TokenResponse {
   access_token: string
-  refresh_token: string
-  token_type: string
+  user_id: string
+  verified: boolean
 }
 
 export interface RegisterResponse {

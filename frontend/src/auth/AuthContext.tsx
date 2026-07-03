@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { api } from '../api/client'
+import { api, refreshAccessToken, setOnAuthFailure } from '../api/client'
 import { tokenStore } from '../api/tokenStore'
 import type { LoginPayload, RegisterPayload, User } from '../api/types'
 
@@ -26,20 +26,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // On mount, if we have a stored access token, try to resolve the session.
+  // On mount, re-establish the session. The access token lived only in memory, so
+  // a page reload wiped it — re-mint it from the httpOnly refresh cookie (the
+  // browser attaches it automatically). No/expired cookie => refresh returns
+  // false and we stay logged out. Calls refreshAccessToken() directly, NOT via
+  // request(), so a logged-out visitor never trips the onAuthFailure path below.
   useEffect(() => {
     let active = true
+    // Register before any authed request can fire, so a mid-session refresh
+    // failure (or a refreshed-but-still-rejected token) drops the UI to logged-out.
+    setOnAuthFailure(() => {
+      tokenStore.clear()
+      setUser(null)
+    })
     async function bootstrap() {
-      if (!tokenStore.getAccess()) {
-        setLoading(false)
-        return
-      }
       try {
-        const me = await api.me()
-        if (active) setUser(me)
+        const refreshed = await refreshAccessToken()
+        if (refreshed && active) {
+          const me = await api.me()
+          if (active) setUser(me)
+        }
       } catch {
-        // Token missing/expired/invalid — clear it and stay logged out.
-        tokenStore.clear()
+        // Refreshed but /users/me still failed — treat as logged out.
+        if (active) {
+          tokenStore.clear()
+          setUser(null)
+        }
       } finally {
         if (active) setLoading(false)
       }
@@ -47,12 +59,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     bootstrap()
     return () => {
       active = false
+      setOnAuthFailure(null)
     }
   }, [])
 
   const login = useCallback(async (payload: LoginPayload) => {
     const tokens = await api.login(payload)
-    tokenStore.set(tokens.access_token, tokens.refresh_token)
+    // Refresh token is set as an httpOnly cookie by the backend; we only keep
+    // the access token client-side.
+    tokenStore.set(tokens.access_token)
     const me = await api.me()
     setUser(me)
     return me
@@ -64,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = useCallback(async (payload: RegisterPayload) => {
     await api.register(payload)
     const tokens = await api.login({ email: payload.email, password: payload.password })
-    tokenStore.set(tokens.access_token, tokens.refresh_token)
+    tokenStore.set(tokens.access_token)
     const me = await api.me()
     setUser(me)
     return me
@@ -89,13 +104,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const logout = useCallback(async () => {
-    const refresh = tokenStore.getRefresh()
-    if (refresh) {
-      try {
-        await api.logout(refresh)
-      } catch {
-        // Best-effort server-side revocation; clear locally regardless.
-      }
+    try {
+      // Cookie-authenticated: revokes the refresh token and clears the cookie
+      // server-side. No token to pass — the httpOnly cookie rides along.
+      await api.logout()
+    } catch {
+      // Best-effort server-side revocation; clear locally regardless.
     }
     tokenStore.clear()
     setUser(null)

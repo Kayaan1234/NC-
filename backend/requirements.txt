@@ -12,3 +12,5 @@ psycopg[binary]
 # Schema migrations for the Postgres cutover
 alembic
 resend
+starlette
+slowapi

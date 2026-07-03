@@ -93,10 +93,38 @@ def issue_password_reset(
     same worker instead of trying to enqueue onto a request that's already gone.
 
     Any still-live reset tokens are invalidated first, so only the newest link
-    works (limits the blast radius of a leaked older link). No resend cooldown is
-    enforced here yet — rate limiting is a deliberate follow-up.
+    works (limits the blast radius of a leaked older link).
+
+    A per-user resend cooldown caps how often a *registered* address can be
+    emailed, so an attacker rotating source IPs still can't flood one victim's
+    inbox. Two things differ from issue_email_verification's cooldown, both
+    forced by this running inside forgot_password's BackgroundTask (i.e. after
+    the response is already flushed):
+      - it's checked *before* the invalidation UPDATE below, so a throttled
+        request doesn't burn the still-valid token it's declining to replace;
+      - it returns silently instead of raising — an HTTPException here reaches
+        no client (it'd just be swallowed by _process_forgot_password), and the
+        generic 200 the caller already got must stay the only observable
+        outcome, so there's nothing to raise.
     """
     now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    last_token = db.execute(
+        select(models.EmailToken)
+        .where(
+            models.EmailToken.user_id == user.id,
+            models.EmailToken.purpose == models.EmailTokenPurpose.RESET_PASSWORD,
+        )
+        .order_by(models.EmailToken.created_at.desc())
+    ).scalars().first()
+
+    cooldown = timedelta(minutes=settings.RESET_RESEND_COOLDOWN_MINUTES)
+    if (
+        last_token is not None
+        and last_token.created_at is not None
+        and now - last_token.created_at < cooldown
+    ):
+        return
 
     db.execute(
         update(models.EmailToken)

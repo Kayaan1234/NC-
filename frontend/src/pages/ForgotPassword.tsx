@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, ApiError } from '../api/client'
+import { useCountdown, formatCountdown } from '../auth/useCountdown'
 import { RESET_TTL_HOURS } from '../authConfig'
 
 export default function ForgotPassword() {
@@ -11,6 +12,7 @@ export default function ForgotPassword() {
   // show the SAME message whether or not the address is registered — the backend
   // reveals nothing (anti-enumeration), so the UI mustn't leak it either.
   const [sent, setSent] = useState(false)
+  const { remaining, start } = useCountdown()
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -20,13 +22,21 @@ export default function ForgotPassword() {
       await api.forgotPassword({ email })
       setSent(true)
     } catch (err) {
-      // A network error is the only thing worth surfacing; a 200 with an unknown
-      // email still resolves, so we never end up here for "email not found".
-      setError(err instanceof ApiError ? err.message : 'Something went wrong')
+      // A 200 with an unknown email still resolves, so we never land here for
+      // "email not found". The cases worth surfacing are a network error or a
+      // 429 — the latter locks the button for the exact backend cooldown.
+      if (err instanceof ApiError) {
+        setError(err.message)
+        if (err.status === 429 && err.retryAfter) start(err.retryAfter)
+      } else {
+        setError('Something went wrong')
+      }
     } finally {
       setBusy(false)
     }
   }
+
+  const locked = remaining > 0
 
   if (sent) {
     return (
@@ -78,8 +88,12 @@ export default function ForgotPassword() {
               required
             />
           </div>
-          <button className="btn btn-primary full" type="submit" disabled={busy}>
-            {busy ? 'sending…' : 'Send reset link'}
+          <button className="btn btn-primary full" type="submit" disabled={busy || locked}>
+            {busy
+              ? 'sending…'
+              : locked
+                ? `Try again in ${formatCountdown(remaining)}`
+                : 'Send reset link'}
           </button>
         </form>
 

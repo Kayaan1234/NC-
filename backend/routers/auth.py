@@ -1,9 +1,9 @@
 
 from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks, Request, Cookie, Response
 
 from backend import models
-from backend.schemas.auth import ForgotPasswordToken, RegisterRequest, AuthResponse, LoginRequest, ResetPasswordRequest, TokenResponse, RefreshRequest, ResendVerificationResponse, VerifyEmailRequest, ForgotPasswordRequest, ValidateResetTokenRequest
+from backend.schemas.auth import ForgotPasswordToken, RegisterRequest, AuthResponse, LoginRequest, ResetPasswordRequest, TokenResponse, ResendVerificationResponse, VerifyEmailRequest, ForgotPasswordRequest, ValidateResetTokenRequest
 from backend.database import get_db, SessionLocal
 from typing import Annotated
 from sqlalchemy.orm import Session
@@ -11,13 +11,16 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 import bcrypt
 from uuid import UUID
-import hashlib
 
 from backend.core.security import create_access_token, create_refresh_token, hash_token
+from backend.core.cookies import set_refresh_cookie, clear_refresh_cookie
 from backend.core.activity import has_active_refresh_token, touch_activity
 from backend.core.config import settings
 from backend.core.deps import get_current_user
 from backend.core.verification import issue_email_verification, issue_password_reset
+from backend.core.limiter import limiter
+
+
 
 router = APIRouter(
     prefix="/auth",
@@ -33,7 +36,8 @@ _DUMMY_PASSWORD_HASH = bcrypt.hashpw(b"constant-time-login-dummy", bcrypt.gensal
                                                                                                                                                     
                                                                                                                                                                                                  
 @router.post("/register", response_model = AuthResponse)
-def register(body : RegisterRequest, db: Annotated[Session, Depends(get_db)], background_tasks: BackgroundTasks): #session is a database session that is automatically provided by FastAPI's dependency injection system. It allows the function to interact with the database without having to manually create and manage a session.
+@limiter.limit(settings.RATE_LIMIT_EMAIL_SEND)
+def register(request: Request, body : RegisterRequest, db: Annotated[Session, Depends(get_db)], background_tasks: BackgroundTasks): #session is a database session that is automatically provided by FastAPI's dependency injection system. It allows the function to interact with the database without having to manually create and manage a session.
     # NOTE: kept as a sync `def` route on purpose. The DB session and bcrypt are
     # both blocking; FastAPI runs sync routes in a threadpool, so they don't block
     # the event loop. An `async def` here would block it.
@@ -66,8 +70,9 @@ def register(body : RegisterRequest, db: Annotated[Session, Depends(get_db)], ba
     # convert SQLAlchemy UUID type to python's uuid.UUID to satisfy type checker
     return AuthResponse(message="User registered successfully", user_id=UUID(str(new_user.id)), verified=False)
 
-@router.post("/login", response_model = TokenResponse)
-def login(body : LoginRequest, db: Annotated[Session, Depends(get_db)]):
+@router.post("/login")
+@limiter.limit(settings.RATE_LIMIT_AUTH)
+def login(response: Response, request: Request, body: LoginRequest, db: Annotated[Session, Depends(get_db)]):
     user = db.execute(
         select(models.User).where(models.User.email == body.email)
     ).scalars().first()
@@ -93,11 +98,22 @@ def login(body : LoginRequest, db: Annotated[Session, Depends(get_db)]):
     db.add(refresh_token_entry)
     db.commit()
 
-    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+    # Refresh token leaves ONLY as an httpOnly cookie — never in the body — so
+    # page JS can't read it and an XSS bug can't exfiltrate it. The access token
+    # still goes in the body for the client to hold in memory.
+    set_refresh_cookie(response, refresh_token)
 
-@router.post("/refresh", response_model = TokenResponse)
-def refresh(body : RefreshRequest, db : Annotated[Session, Depends(get_db)]):
-    token_hash = hashlib.sha256(body.refresh_token.encode()).hexdigest()
+    return {"access_token": access_token, "user_id": str(user.id), "verified": user.verified}
+
+@router.post("/refresh")
+def refresh(response: Response, db: Annotated[Session, Depends(get_db)], refresh_token: Annotated[str | None, Cookie()] = None):
+    # The refresh token arrives only via the httpOnly cookie set at login. No
+    # cookie (logged out, expired, or a cross-site request that SameSite=Strict
+    # stripped) is indistinguishable from a bad token: same 401.
+    if refresh_token is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+
+    token_hash = hash_token(refresh_token)
 
     result =  db.execute(
         select(models.RefreshToken).where(models.RefreshToken.token_hash == token_hash)
@@ -108,8 +124,8 @@ def refresh(body : RefreshRequest, db : Annotated[Session, Depends(get_db)]):
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
     access_token = create_access_token(str(token.user_id))
 
-    # optional: rotate the refresh token
-
+    # Rotate the refresh token: revoke the presented one and mint a fresh one, so
+    # a leaked token is single-use.
     new_raw_token, new_raw_token_hash = create_refresh_token(str(token.user_id))
     token.revoked = True
     new_refresh = models.RefreshToken(
@@ -123,28 +139,36 @@ def refresh(body : RefreshRequest, db : Annotated[Session, Depends(get_db)]):
     touch_activity(token.user)
     db.commit()
 
-    return TokenResponse(access_token=access_token, refresh_token=new_raw_token)
+    set_refresh_cookie(response, new_raw_token)
 
+    return {"access_token": access_token, "user_id": str(token.user_id), "verified": token.user.verified}
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-def logout(body : RefreshRequest, current_user: Annotated[models.User, Depends(get_current_user)], db : Annotated[Session, Depends(get_db)]) -> None:
-    token_hash = hashlib.sha256(body.refresh_token.encode()).hexdigest()
-    db.execute(
-        update(models.RefreshToken)
-        .where(
-            models.RefreshToken.token_hash == token_hash,
-            models.RefreshToken.user_id == current_user.id,
-        )
-        .values(revoked = True)
-    )
-    # Flush so the revoke above is visible to the EXISTS check below, then
-    # recompute is_active from the *remaining* valid tokens — other devices may
-    # still hold a live session, so we don't blindly set it False.
-    db.flush()
-    current_user.is_active = has_active_refresh_token(db, current_user.id)
-    db.commit()
+def logout(response: Response, db: Annotated[Session, Depends(get_db)], refresh_token: Annotated[str | None, Cookie()] = None) -> None:
+    # Authenticated by possession of the httpOnly refresh cookie, NOT the Bearer
+    # access token. The access token expires in minutes, but only the server can
+    # clear an httpOnly cookie — so requiring a live access token would let a
+    # "logout" 401 while a valid refresh token stays alive in the DB for days.
+    # Safe against CSRF because SameSite=Strict is what guards this endpoint.
+    # Idempotent: a missing/unknown/already-revoked token still clears the cookie
+    # and returns 204.
+    if refresh_token is not None:
+        token = db.execute(
+            select(models.RefreshToken).where(models.RefreshToken.token_hash == hash_token(refresh_token))
+        ).scalar_one_or_none()
+        if token is not None and not token.revoked:
+            token.revoked = True
+            # Flush so the revoke is visible to the EXISTS check, then recompute
+            # is_active from the *remaining* valid tokens — other devices may
+            # still hold a live session, so we don't blindly set it False.
+            db.flush()
+            token.user.is_active = has_active_refresh_token(db, token.user_id)
+            db.commit()
+
+    clear_refresh_cookie(response)
 
 @router.post("/resend-verification")
-def resend_verification(background_tasks: BackgroundTasks, current_user: Annotated[models.User,Depends(get_current_user)], db: Annotated[Session, Depends(get_db)]):
+@limiter.limit(settings.RATE_LIMIT_EMAIL_SEND)
+def resend_verification(request: Request, background_tasks: BackgroundTasks, current_user: Annotated[models.User,Depends(get_current_user)], db: Annotated[Session, Depends(get_db)]):
     if current_user.verified:
         raise HTTPException(status_code=400, detail="Email is already verified")
 
@@ -153,7 +177,8 @@ def resend_verification(background_tasks: BackgroundTasks, current_user: Annotat
 
 
 @router.post("/verify", response_model=ResendVerificationResponse)
-def verify_email(body: VerifyEmailRequest, db: Annotated[Session, Depends(get_db)]):
+@limiter.limit(settings.RATE_LIMIT_TOKEN)
+def verify_email(request: Request, body: VerifyEmailRequest, db: Annotated[Session, Depends(get_db)]):
     # POST (not GET): the SPA reads ?token= from the link and posts it here, so
     # email scanners/preview bots that pre-fetch the link can't consume the
     # single-use token, and the token never lands in server access logs.
@@ -204,7 +229,8 @@ def _process_forgot_password(email: str) -> None:
 
 
 @router.post("/forgot-password")
-def forgot_password(body: ForgotPasswordRequest, background_tasks: BackgroundTasks):
+@limiter.limit(settings.RATE_LIMIT_EMAIL_SEND)
+def forgot_password(request: Request, body: ForgotPasswordRequest, background_tasks: BackgroundTasks):
     # Do the lookup + issue off the request path so the existing-email and
     # unknown-email cases are indistinguishable by response time. Returning the
     # same generic body without a timing tell is what actually prevents email
@@ -239,7 +265,8 @@ def _load_valid_reset_token(token: str, db: Session) -> models.EmailToken:
 
 
 @router.post("/reset-password/validate", response_model=ResendVerificationResponse)
-def validate_reset_token(body: ValidateResetTokenRequest, db: Annotated[Session, Depends(get_db)]):
+@limiter.limit(settings.RATE_LIMIT_TOKEN)
+def validate_reset_token(request: Request, body: ValidateResetTokenRequest, db: Annotated[Session, Depends(get_db)]):
     # Read-only: the landing page calls this on load to decide between the
     # 'link expired' screen and the new-password form, without consuming the
     # single-use token (a preview/scanner hitting it must not burn it either).
@@ -248,7 +275,8 @@ def validate_reset_token(body: ValidateResetTokenRequest, db: Annotated[Session,
 
 
 @router.post("/reset-password", response_model=ResendVerificationResponse)
-def reset_password(body: ForgotPasswordToken, db: Annotated[Session, Depends(get_db)]):
+@limiter.limit(settings.RATE_LIMIT_TOKEN)
+def reset_password(request: Request, response: Response, body: ForgotPasswordToken, db: Annotated[Session, Depends(get_db)]):
     email_token = _load_valid_reset_token(body.token, db)
 
     user = db.get(models.User, email_token.user_id)
@@ -268,4 +296,11 @@ def reset_password(body: ForgotPasswordToken, db: Annotated[Session, Depends(get
     user.is_active = False
     db.commit()
 
-    return ResendVerificationResponse(message="Password has been reset successfully")   
+    # Usually hit logged-out (email link), but if this browser happens to hold a
+    # now-revoked session cookie, clear it too — consistent with the other
+    # revoke-all paths (/users/me/password, delete account).
+    clear_refresh_cookie(response)
+
+    return ResendVerificationResponse(message="Password has been reset successfully")
+
+

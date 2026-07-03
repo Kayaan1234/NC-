@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { ApiError } from '../api/client'
+import { useCountdown, formatCountdown } from '../auth/useCountdown'
 
 // Mirrors backend/schemas/auth.py validation so we fail fast, client-side.
 function validate(fields: {
@@ -33,6 +34,7 @@ export default function Register() {
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const { remaining, start } = useCountdown()
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -53,11 +55,20 @@ export default function Register() {
       // A fresh account is always unverified — go straight to the gate.
       navigate('/verify-required')
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong')
+      if (err instanceof ApiError) {
+        setError(err.message)
+        // Rate limited (register fires a verification email): lock for the
+        // exact backend cooldown so the button can't be hammered.
+        if (err.status === 429 && err.retryAfter) start(err.retryAfter)
+      } else {
+        setError('Something went wrong')
+      }
     } finally {
       setBusy(false)
     }
   }
+
+  const locked = remaining > 0
 
   return (
     <div className="auth-page">
@@ -110,8 +121,12 @@ export default function Register() {
               required
             />
           </div>
-          <button className="btn btn-primary full" type="submit" disabled={busy}>
-            {busy ? 'creating…' : 'Create account'}
+          <button className="btn btn-primary full" type="submit" disabled={busy || locked}>
+            {busy
+              ? 'creating…'
+              : locked
+                ? `Try again in ${formatCountdown(remaining)}`
+                : 'Create account'}
           </button>
         </form>
         <p className="auth-alt">

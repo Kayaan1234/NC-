@@ -13,14 +13,17 @@ import type {
   User,
 } from './types'
 
-const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000'
+// Must be same-SITE with the SPA (localhost:5173) or the SameSite=Strict refresh
+// cookie won't be sent — hence `localhost`, not `127.0.0.1` (different site).
+const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
 /** Thrown on any non-2xx response; `message` is the backend's `detail` string.
- *  `retryAfter` (seconds) is set on 429s when the backend's `Retry-After` header
- *  is readable — used to render a precise cooldown countdown. NOTE: because the
- *  frontend and API are cross-origin, this header is only exposed to JS once the
- *  backend's CORSMiddleware sets `expose_headers=["Retry-After"]`; until then it
- *  stays undefined and the UI falls back to the (already human-readable) message. */
+ *  `retryAfter` (seconds) is set on 429s and drives a precise cooldown countdown.
+ *  The backend sends it two ways — a `retry_after` field in the JSON body and a
+ *  `Retry-After` header — and we prefer the body since it's always readable,
+ *  whereas the header is only exposed to cross-origin JS when the API sets
+ *  `expose_headers=["Retry-After"]`. If neither is present the UI falls back to
+ *  the (already human-readable) message. */
 export class ApiError extends Error {
   status: number
   retryAfter?: number
@@ -38,7 +41,53 @@ interface RequestOptions {
   auth?: boolean // attach the Bearer access token
 }
 
-async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
+// --- Silent refresh --------------------------------------------------------
+//
+// The access token lives only in memory and expires quickly; the refresh token
+// is an httpOnly cookie the browser attaches automatically. refreshAccessToken()
+// trades that cookie for a fresh access token. A single in-flight promise is
+// shared across all callers, so N requests 401ing at once — or a child component
+// racing the mount bootstrap — trigger exactly ONE /auth/refresh, not N rotations
+// against the same cookie (the backend rotates on refresh, so the 2nd would
+// present an already-revoked token and fail).
+let refreshInFlight: Promise<boolean> | null = null
+
+export function refreshAccessToken(): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = doRefresh().finally(() => {
+      refreshInFlight = null
+    })
+  }
+  return refreshInFlight
+}
+
+async function doRefresh(): Promise<boolean> {
+  // Raw fetch, NOT request(): the interceptor must never recurse into itself,
+  // and a missing/expired cookie here is an expected "not logged in", not an
+  // error to surface.
+  try {
+    const res = await fetch(`${BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+    })
+    if (!res.ok) return false
+    const data = (await res.json()) as TokenResponse
+    tokenStore.set(data.access_token)
+    return true
+  } catch {
+    return false
+  }
+}
+
+// Fired when a session is definitively dead — a mid-session refresh failed, or a
+// freshly refreshed token is still rejected. AuthContext registers a handler that
+// drops the app to logged-out; the client stays decoupled from React.
+let onAuthFailure: (() => void) | null = null
+export function setOnAuthFailure(handler: (() => void) | null): void {
+  onAuthFailure = handler
+}
+
+async function request<T>(path: string, opts: RequestOptions = {}, retry = true): Promise<T> {
   const { method = 'GET', body, auth = false } = opts
   const headers: Record<string, string> = {}
   if (body !== undefined) headers['Content-Type'] = 'application/json'
@@ -52,10 +101,27 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
     res = await fetch(`${BASE_URL}${path}`, {
       method,
       headers,
+      // Send/receive the httpOnly refresh cookie: required so login stores it,
+      // refresh/logout send it, and the revoke-all routes' clearing Set-Cookie
+      // is honored. Works cross-origin because the API sets
+      // Access-Control-Allow-Credentials with specific (non-*) origins.
+      credentials: 'include',
       body: body !== undefined ? JSON.stringify(body) : undefined,
     })
   } catch {
     throw new ApiError(0, 'Could not reach the server. Is the backend running?')
+  }
+
+  // Access token expired mid-session: silently refresh once (the httpOnly cookie
+  // rides along) and replay the original request — its headers are rebuilt below
+  // from the now-rotated token. Gated on `auth` (only Bearer-carrying calls 401
+  // on an expired access token) and `retry` so a replay that still 401s doesn't
+  // loop.
+  if (res.status === 401 && auth && retry) {
+    const refreshed = await refreshAccessToken()
+    if (refreshed) return request<T>(path, opts, false)
+    // Refresh cookie gone/expired/revoked: the session is truly over.
+    onAuthFailure?.()
   }
 
   if (res.status === 204) return undefined as T
@@ -71,14 +137,22 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   }
 
   if (!res.ok) {
-    throw new ApiError(res.status, extractDetail(data, res.status), parseRetryAfter(res))
+    // A retried request that still 401s (fresh token, still rejected => account
+    // deleted or all sessions revoked) is likewise a dead session.
+    if (res.status === 401 && auth && !retry) onAuthFailure?.()
+    throw new ApiError(res.status, extractDetail(data, res.status), parseRetryAfter(res, data))
   }
   return data as T
 }
 
-/** Backend sets `Retry-After` to an integer-seconds string on its 429s. Only
- *  readable cross-origin once the API opts the header into CORS exposure. */
-function parseRetryAfter(res: Response): number | undefined {
+/** Seconds until a rate-limited action unlocks. Prefers the `retry_after` field
+ *  in the JSON body (always readable) and falls back to the `Retry-After` header
+ *  (only exposed cross-origin when the API opts it into CORS exposure). */
+function parseRetryAfter(res: Response, data: unknown): number | undefined {
+  if (data && typeof data === 'object' && 'retry_after' in data) {
+    const secs = Number((data as { retry_after: unknown }).retry_after)
+    if (Number.isFinite(secs)) return secs
+  }
   const raw = res.headers.get('Retry-After')
   if (!raw) return undefined
   const secs = Number(raw)
@@ -107,8 +181,9 @@ export const api = {
   login: (payload: LoginPayload) =>
     request<TokenResponse>('/auth/login', { method: 'POST', body: payload }),
 
-  logout: (refresh_token: string) =>
-    request<void>('/auth/logout', { method: 'POST', body: { refresh_token }, auth: true }),
+  // Cookie-authenticated: the backend reads the httpOnly refresh cookie (no
+  // Bearer needed), revokes that token, and clears the cookie. 204 on success.
+  logout: () => request<void>('/auth/logout', { method: 'POST' }),
 
   me: () => request<User>('/users/me', { auth: true }),
 

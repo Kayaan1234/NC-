@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { api, ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { useCountdown, formatCountdown } from '../auth/useCountdown'
 import { passwordError } from '../auth/passwordPolicy'
 
 const REDIRECT_FROM = 3 // seconds; counts 3 -> 2 -> 1 then routes to login
@@ -36,6 +37,7 @@ export default function PasswordReset() {
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const { remaining, start } = useCountdown()
 
   // On landing with a token, ask the backend (read-only, non-consuming) whether
   // it's still valid, so we show 'link expired' vs. the form up front — before
@@ -98,15 +100,23 @@ export default function PasswordReset() {
     } catch (err) {
       // A 400 means the token expired or was consumed between load and submit —
       // there's no retrying the form, so swap to the 'link expired' screen. Any
-      // other error (network, 422) is transient/fixable, so keep the form.
+      // other error (network, 422, 429) is transient/fixable, so keep the form.
       if (err instanceof ApiError && err.status === 400) {
         setPhase('invalid')
       } else {
-        setError(err instanceof ApiError ? err.message : 'Something went wrong')
+        if (err instanceof ApiError) {
+          setError(err.message)
+          // Rate limited: lock the submit for the exact backend cooldown.
+          if (err.status === 429 && err.retryAfter) start(err.retryAfter)
+        } else {
+          setError('Something went wrong')
+        }
         setBusy(false)
       }
     }
   }
+
+  const locked = remaining > 0
 
   if (phase === 'redirect') return <Navigate to="/login" replace />
 
@@ -224,8 +234,12 @@ export default function PasswordReset() {
               required
             />
           </div>
-          <button className="btn btn-primary full" type="submit" disabled={busy}>
-            {busy ? 'saving…' : 'Reset password'}
+          <button className="btn btn-primary full" type="submit" disabled={busy || locked}>
+            {busy
+              ? 'saving…'
+              : locked
+                ? `Try again in ${formatCountdown(remaining)}`
+                : 'Reset password'}
           </button>
         </form>
       </div>
