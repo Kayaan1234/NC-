@@ -1,12 +1,13 @@
 from datetime import datetime, timedelta, timezone
 
-from fastapi import BackgroundTasks, HTTPException, status
+from fastapi import BackgroundTasks
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from backend import models
 from backend.core.config import settings
 from backend.core.email import send_verification_email, send_password_reset_email
+from backend.core.errors import CooldownError
 from backend.core.security import generate_verification_token
 
 
@@ -49,10 +50,9 @@ def issue_email_verification(
             elapsed = now - last_token.created_at
             if elapsed < cooldown:
                 retry_after = int((cooldown - elapsed).total_seconds())
-                raise HTTPException(
-                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail="A verification email was sent recently. Please wait before requesting another.",
-                    headers={"Retry-After": str(retry_after)},
+                raise CooldownError(
+                    "A verification email was sent recently. Please wait before requesting another.",
+                    retry_after,
                 )
 
     db.execute(

@@ -4,6 +4,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import RegisterSuccess from './pages/RegisterSuccess'
 import Dashboard from './pages/Dashboard'
 import VerifyEmail from './pages/VerifyEmail'
 import VerifyRequired from './pages/VerifyRequired'
@@ -19,6 +20,10 @@ export default function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        {/* Public: neutral post-register "check your email" screen. Register no
+            longer auto-logs-in (the API response is generic to avoid account
+            enumeration), so there's no session to land on a protected gate. */}
+        <Route path="/registered" element={<RegisterSuccess />} />
         {/* Public: reached from the login page; posts the email and shows a
             generic "if it's registered…" confirmation (no enumeration). */}
         <Route path="/forgot-password" element={<ForgotPassword />} />

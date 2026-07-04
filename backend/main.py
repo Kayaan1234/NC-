@@ -12,6 +12,7 @@ from backend.core.config import settings
 from backend.database import engine, Base
 
 from backend.core.limiter import limiter
+from backend.core.errors import CooldownError, cooldown_exception_handler
 from slowapi.errors import RateLimitExceeded
 
 
@@ -52,6 +53,8 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI()
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+# Per-user cooldowns share the slowapi 429 body shape via this handler.
+app.add_exception_handler(CooldownError, cooldown_exception_handler)
 app.include_router(auth_router)
 app.include_router(user_router)
 

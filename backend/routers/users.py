@@ -16,6 +16,8 @@ from uuid import UUID
 from backend.core.deps import get_current_user, require_verified_user
 from backend.core.config import settings
 from backend.core.cookies import clear_refresh_cookie
+from backend.core.email import send_email_changed_notification
+from backend.core.errors import CooldownError
 from backend.core.limiter import limiter
 
 
@@ -100,10 +102,9 @@ def update_email(
         elapsed = now - current_user.email_changed_at
         if elapsed < change_cooldown:
             retry_after = int((change_cooldown - elapsed).total_seconds())
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="You can only change your email once per day. Please try again later.",
-                headers={"Retry-After": str(retry_after)},
+            raise CooldownError(
+                "You can only change your email once per day. Please try again later.",
+                retry_after,
             )
 
     existing = db.execute(
@@ -111,6 +112,9 @@ def update_email(
     ).scalars().first()
     if existing and existing.id != current_user.id:
         raise HTTPException(status_code=400, detail="Email already in use")
+
+    # Capture the OLD address before overwriting — that's who we warn below.
+    old_email = current_user.email
 
     current_user.email = body.new_email
     current_user.verified = False
@@ -125,6 +129,14 @@ def update_email(
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=400, detail="Email already in use")
+
+    # We intentionally DON'T revoke sessions on an email change (the current
+    # password was already required, and the new address isn't trusted until
+    # re-verified). Instead, warn the previous address so an unauthorised change
+    # is recoverable — the notice points at password reset, which does revoke.
+    background_tasks.add_task(
+        send_email_changed_notification, to_email=old_email, new_email=body.new_email
+    )
     return ResendVerificationResponse(message="Email updated, verification email sent")
 
 

@@ -10,10 +10,11 @@ export interface TokenResponse {
   verified: boolean
 }
 
+/** /auth/register returns ONLY a generic message — deliberately identical
+ *  whether the email was free or already taken (no account enumeration), so no
+ *  user_id/verified is exposed. The SPA ignores the body and auto-logs-in. */
 export interface RegisterResponse {
   message: string
-  user_id: string
-  verified: boolean
 }
 
 export interface User {

@@ -35,6 +35,70 @@ def send_verification_email(token: str, to_email: str) -> None:
         logger.exception("Failed to send verification email to %s", to_email)
 
 
+def send_account_exists_email(to_email: str) -> None:
+    """Sent when someone tries to register an email that already has an account.
+
+    /auth/register returns the same generic response whether or not the address
+    is taken (no enumeration), so this email is how the *real* owner is told what
+    happened — the attacker probing the API never sees the victim's inbox. Runs
+    off the request path like the other senders: log failures and move on."""
+    resend.api_key = settings.RESEND_API_KEY
+    login_url = f"{settings.FRONTEND_URL}/login"
+    forgot_url = f"{settings.FRONTEND_URL}/forgot-password"
+
+    params: resend.Emails.SendParams = {
+        "from": settings.EMAIL_FROM,
+        "to": [to_email],
+        "subject": "You already have an NC++ account",
+        "html": (
+            "<p>Someone (possibly you) just tried to sign up for NC++ with this "
+            "email address, but an account already exists.</p>"
+            f'<p><a href="{login_url}">Log in</a> or '
+            f'<a href="{forgot_url}">reset your password</a> if you\'ve forgotten it.</p>'
+            "<p>If this wasn't you, no account was created or changed — you can "
+            "safely ignore this email.</p>"
+        ),
+    }
+
+    try:
+        resend.Emails.send(params)
+    except Exception:
+        logger.exception("Failed to send account-exists email to %s", to_email)
+
+
+def send_email_changed_notification(to_email: str, new_email: str) -> None:
+    """Notify the PREVIOUS address that the account's email was changed.
+
+    This is the real protection for an email change (we deliberately do NOT
+    revoke sessions — the change already re-authenticates with the current
+    password and re-verifies the new address). If the change was unauthorised,
+    this is the only message that reaches the legitimate owner, so it points them
+    at password reset — which DOES revoke every session — to lock an attacker
+    out. Runs off the request path like the other senders: log failures, move on.
+    """
+    resend.api_key = settings.RESEND_API_KEY
+    reset_url = f"{settings.FRONTEND_URL}/forgot-password"
+
+    params: resend.Emails.SendParams = {
+        "from": settings.EMAIL_FROM,
+        "to": [to_email],
+        "subject": "Your NC++ email address was changed",
+        "html": (
+            f"<p>The email address on your NC++ account was just changed to "
+            f"<strong>{new_email}</strong>.</p>"
+            "<p>If you made this change, no action is needed.</p>"
+            "<p><strong>If you did NOT</strong>, your account may be compromised. "
+            f'Reset your password now to secure it: <a href="{reset_url}">Reset password</a> '
+            "— this signs out every device.</p>"
+        ),
+    }
+
+    try:
+        resend.Emails.send(params)
+    except Exception:
+        logger.exception("Failed to send email-changed notification to %s", to_email)
+
+
 def send_password_reset_email(token: str, to_email: str) -> None:
     """Send the password-reset link. Like send_verification_email, this runs off
     the request path (inside forgot_password's BackgroundTask) so there's no

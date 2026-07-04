@@ -52,8 +52,10 @@ export default function Register() {
         password,
         confirm_password: confirm,
       })
-      // A fresh account is always unverified — go straight to the gate.
-      navigate('/verify-required')
+      // No auto-login (the register response is deliberately generic), so route
+      // to a neutral "check your email" screen — identical whether the address
+      // was new or already registered.
+      navigate('/registered', { state: { fromRegister: true, email } })
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message)

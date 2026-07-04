@@ -40,10 +40,12 @@ class RegisterRequest(BaseModel):
             raise ValueError("Passwords do not match")
         return self
     
-class AuthResponse(BaseModel):
-    message : str
-    user_id : UUID
-    verified : bool = Field(default=False)
+class RegisterResponse(BaseModel):
+    # Message-only ON PURPOSE: the response must be byte-identical whether the
+    # email was free (account created) or already taken (nothing created). A
+    # user_id/verified field would leak that difference and re-open email
+    # enumeration. The SPA ignores the body anyway — it auto-logs-in afterward.
+    message: str
 
 class UserPublic(BaseModel):
 

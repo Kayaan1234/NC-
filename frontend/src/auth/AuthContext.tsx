@@ -9,7 +9,11 @@ interface AuthState {
   loading: boolean // true during the initial "do we have a valid session?" check
   // Resolve to the logged-in user so callers can route by `verified`.
   login: (payload: LoginPayload) => Promise<User>
-  register: (payload: RegisterPayload) => Promise<User>
+  // Does NOT log in or return a user: /auth/register replies with a generic
+  // message that's identical whether the email was free or already taken, so we
+  // must not auto-login (success vs. failure would re-expose which case it was).
+  // Callers route to a neutral "check your email" screen instead.
+  register: (payload: RegisterPayload) => Promise<void>
   logout: () => Promise<void>
   // Drop the local session without a server round-trip. For flows where the
   // server already invalidated the session: account deletion (the user row is
@@ -73,16 +77,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return me
   }, [])
 
-  // Backend /auth/register issues NO tokens, so we auto-login afterwards to
-  // give the user an authenticated session in one step. The new account is
-  // unverified, so callers route it to the verification gate.
+  // Register only. We deliberately do NOT auto-login: the backend's response is
+  // generic (no enumeration), so a follow-up login would succeed for a new email
+  // but fail for an already-registered one — re-leaking the distinction and
+  // logging a legitimate re-registrant into a confusing error. The caller sends
+  // the user to a neutral "check your email" screen; they log in after verifying.
   const register = useCallback(async (payload: RegisterPayload) => {
     await api.register(payload)
-    const tokens = await api.login({ email: payload.email, password: payload.password })
-    tokenStore.set(tokens.access_token)
-    const me = await api.me()
-    setUser(me)
-    return me
   }, [])
 
   const refreshUser = useCallback(async () => {

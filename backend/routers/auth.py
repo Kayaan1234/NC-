@@ -3,22 +3,29 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks, Request, Cookie, Response
 
 from backend import models
-from backend.schemas.auth import ForgotPasswordToken, RegisterRequest, AuthResponse, LoginRequest, ResetPasswordRequest, TokenResponse, ResendVerificationResponse, VerifyEmailRequest, ForgotPasswordRequest, ValidateResetTokenRequest
+from backend.schemas.auth import ForgotPasswordToken, RegisterRequest, RegisterResponse, LoginRequest, ResetPasswordRequest, TokenResponse, ResendVerificationResponse, VerifyEmailRequest, ForgotPasswordRequest, ValidateResetTokenRequest
 from backend.database import get_db, SessionLocal
 from typing import Annotated
 from sqlalchemy.orm import Session
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 import bcrypt
-from uuid import UUID
 
 from backend.core.security import create_access_token, create_refresh_token, hash_token
 from backend.core.cookies import set_refresh_cookie, clear_refresh_cookie
 from backend.core.activity import has_active_refresh_token, touch_activity
 from backend.core.config import settings
 from backend.core.deps import get_current_user
+from backend.core.email import send_account_exists_email
 from backend.core.verification import issue_email_verification, issue_password_reset
 from backend.core.limiter import limiter
+
+
+# Same body whether the email was free or already taken — see RegisterResponse.
+GENERIC_REGISTER_MESSAGE = (
+    "If those details are available, a verification email has been sent. "
+    "Please check your inbox."
+)
 
 
 
@@ -35,40 +42,65 @@ _DUMMY_PASSWORD_HASH = bcrypt.hashpw(b"constant-time-login-dummy", bcrypt.gensal
 
                                                                                                                                                     
                                                                                                                                                                                                  
-@router.post("/register", response_model = AuthResponse)
+@router.post("/register", response_model = RegisterResponse)
 @limiter.limit(settings.RATE_LIMIT_EMAIL_SEND)
 def register(request: Request, body : RegisterRequest, db: Annotated[Session, Depends(get_db)], background_tasks: BackgroundTasks): #session is a database session that is automatically provided by FastAPI's dependency injection system. It allows the function to interact with the database without having to manually create and manage a session.
     # NOTE: kept as a sync `def` route on purpose. The DB session and bcrypt are
     # both blocking; FastAPI runs sync routes in a threadpool, so they don't block
     # the event loop. An `async def` here would block it.
 
-    # Check if user already exists
-    existing_user = db.execute(
-        select(models.User).where((models.User.username == body.username) | (models.User.email == body.email))
+    # Username uniqueness IS disclosed (400): usernames are public identifiers,
+    # and the signup form needs to tell the user to pick another. Email existence
+    # is NOT disclosed — that's the enumeration-sensitive vector (see below).
+    username_taken = db.execute(
+        select(models.User).where(models.User.username == body.username)
     ).scalars().first()
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Username or email already registered")
+    if username_taken:
+        raise HTTPException(status_code=400, detail="Username already taken")
 
-    # Create new user
+    # Hash unconditionally, before the email branch, so both the "email free" and
+    # "email taken" paths pay the bcrypt cost. bcrypt dominates the response time,
+    # so it masks the smaller delta from the extra DB work the create path does —
+    # the two paths aren't identical, but there's no usable timing oracle
+    # (mirrors login()'s dummy-hash defense).
+    hashed_password = bcrypt.hashpw(body.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+    existing_email = db.execute(
+        select(models.User).where(models.User.email == body.email)
+    ).scalars().first()
+    if existing_email:
+        # Do NOT reveal that the address is taken. Return the same generic body
+        # as a fresh signup and notify the real owner out-of-band; an attacker
+        # probing the API sees nothing, the account owner gets a heads-up.
+        background_tasks.add_task(send_account_exists_email, to_email=body.email)
+        return RegisterResponse(message=GENERIC_REGISTER_MESSAGE)
+
     new_user = models.User(
         username=body.username,
         email=body.email,
-        hashed_password=bcrypt.hashpw(body.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        hashed_password=hashed_password,
     )
     db.add(new_user)
     try:
         db.commit()
     except IntegrityError:
-        # Two concurrent registrations can both pass the check above and race to
+        # Two concurrent registrations can both pass the checks above and race to
         # insert; the unique constraint catches the loser here instead of 500ing.
+        # Re-check the username (public) so a genuine username clash still gets a
+        # clear 400; otherwise it was an email race — stay generic, notify owner.
         db.rollback()
-        raise HTTPException(status_code=400, detail="Username or email already registered")
+        raced_username = db.execute(
+            select(models.User).where(models.User.username == body.username)
+        ).scalars().first()
+        if raced_username:
+            raise HTTPException(status_code=400, detail="Username already taken")
+        background_tasks.add_task(send_account_exists_email, to_email=body.email)
+        return RegisterResponse(message=GENERIC_REGISTER_MESSAGE)
     db.refresh(new_user)
 
     issue_email_verification(new_user, db, background_tasks)
 
-    # convert SQLAlchemy UUID type to python's uuid.UUID to satisfy type checker
-    return AuthResponse(message="User registered successfully", user_id=UUID(str(new_user.id)), verified=False)
+    return RegisterResponse(message=GENERIC_REGISTER_MESSAGE)
 
 @router.post("/login")
 @limiter.limit(settings.RATE_LIMIT_AUTH)
