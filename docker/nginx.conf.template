@@ -1,0 +1,27 @@
+# Single-origin front door: serve the built React app AND reverse-proxy the API.
+# ${PORT} and ${BACKEND_URL} are filled in by envsubst at container start.
+server {
+    listen ${PORT};
+    root   /usr/share/nginx/html;
+    index  index.html;
+
+    # API: proxy the backend's route prefixes on the SAME origin. No path
+    # rewrite, so the /auth-scoped refresh cookie's path still matches. If you
+    # add a new top-level router, add its prefix here (or migrate to an /api
+    # prefix — see docs/deployment.md §6.6).
+    location ~ ^/(auth|users|health|scalar) {
+        proxy_pass ${BACKEND_URL};
+        proxy_set_header Host              $host;               # LOCAL (http upstream).
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # --- Cloud Run (uncomment when BACKEND_URL is https://*.run.app) ---
+        # proxy_ssl_server_name on;                  # send SNI or Google 404s
+        # proxy_set_header    Host $proxy_host;       # route by BACKEND's host
+    }
+
+    # SPA: everything else falls back to index.html for client-side routing.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

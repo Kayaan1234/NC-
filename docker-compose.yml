@@ -1,0 +1,49 @@
+# Local full-stack: Postgres + backend (uvicorn) + web (nginx single-origin).
+# Browse the app at http://localhost:8080
+#
+# Needs POSTGRES_PASSWORD — Compose reads it from a git-ignored root `.env`
+# (see .env.example). It must match the password in backend/.env.docker's
+# DATABASE_URL.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ncplusplus_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in a root .env}
+      POSTGRES_DB: ncplusplus_dev
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ncplusplus_user -d ncplusplus_dev"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file: ./backend/.env.docker   # DATABASE_URL host is `db`, not localhost
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - "8000"                        # only the web proxy needs to reach it
+
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_URL: ""              # same-origin: SPA calls /auth, /users, ...
+    environment:
+      PORT: "80"
+      BACKEND_URL: "http://backend:8000"  # service name = hostname on the network
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"                     # host 8080 -> nginx 80
+
+volumes:
+  pgdata:

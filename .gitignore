@@ -13,6 +13,8 @@ dist-ssr/
 
 # --- Secrets & local config (never ship) ---
 *.env
+# real compose secrets (not caught by *.env — ends in .docker, not .env):
+.env.docker
 *.db
 
 # --- Editor / OS cruft ---

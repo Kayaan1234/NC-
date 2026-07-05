@@ -1,0 +1,14 @@
+# Keep build contexts small and secrets OUT of images. Applies to the whole
+# repo-root context (both Dockerfiles build from here).
+**/venv
+**/.venv
+**/node_modules
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.mypy_cache
+**/dist
+**/.env
+**/.env.*
+.git
+.gitignore
