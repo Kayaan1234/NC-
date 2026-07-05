@@ -65,7 +65,7 @@ class Settings(BaseSettings):
     RATE_LIMIT_TOKEN: str = "20/minute"
 
     # Database
-    DATABASE_URL: str = "sqlite:///./test.db"
+    DATABASE_URL: str
 
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:5173"]

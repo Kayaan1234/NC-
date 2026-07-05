@@ -47,7 +47,7 @@ def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSO
 
 # Dev convenience: auto-create tables. For the Postgres cutover, replace this
 # with Alembic migrations and remove the call (see prod next-steps).
-Base.metadata.create_all(bind=engine)
+
 
 
 app = FastAPI()

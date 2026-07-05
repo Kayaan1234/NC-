@@ -24,8 +24,8 @@ dist-ssr/
 # --- Markdown / planning docs (not shipped to production) ---
 *.md
 
-backend/tests/
+
 pytest_cache/
-*.ini
-*.log
-*.txt   
+
+
+
