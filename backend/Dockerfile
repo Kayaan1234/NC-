@@ -4,7 +4,11 @@
 # root on sys.path):  docker build -f backend/Dockerfile -t ncplusplus-backend .
 
 # ---- deps: install into a venv we can copy (keeps build tools out of runtime)
+
+# this installs a slim Python 3.11 image, creates a virtual environment, and installs the dependencies from requirements.lock.txt into that venv. The venv is then copied into the runtime image, which is also based on python:3.11-slim, but without the build tools and cache.
+
 FROM python:3.11-slim AS deps
+# create a virtual environment and install dependencies
 ENV PIP_NO_CACHE_DIR=1
 WORKDIR /app
 COPY backend/requirements.lock.txt .
@@ -20,6 +24,7 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /app
 COPY --from=deps /opt/venv /opt/venv
 COPY backend ./backend
+# Alembic migrations are run in the entrypoint, so copy the migration scripts too, entry point needs them to run migrations before starting the server.
 COPY docker/backend-entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh \
  && adduser --disabled-password --gecos "" appuser \
