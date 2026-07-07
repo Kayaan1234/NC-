@@ -26,8 +26,14 @@ dist-ssr/
 # --- Markdown / planning docs (not shipped to production) ---
 *.md
 
+# --- Python test cache ---
+.pytest_cache/
 
-pytest_cache/
+# --- Logs ---
+*.log
 
+# --- Deployment source configs (embed secret ARNs + account details) ---
+apprunner-*.json
 
-
+# --- Personal Claude Code settings (local permissions) ---
+.claude/settings.local.json

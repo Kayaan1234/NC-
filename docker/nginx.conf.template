@@ -11,13 +11,19 @@ server {
     # prefix — see docs/deployment.md §6.6).
     location ~ ^/(auth|users|health|scalar) {
         proxy_pass ${BACKEND_URL};
-        proxy_set_header Host              $host;               # LOCAL (http upstream).
+        # Host defaults to the upstream host from proxy_pass ($proxy_host). We set
+        # it explicitly for clarity — it must be the BACKEND's host, because a
+        # managed HTTPS upstream (App Runner / Cloud Run) routes by Host, so
+        # sending the web host ($host) would 404. Harmless for the local http
+        # upstream (FastAPI ignores Host — no TrustedHostMiddleware).
+        proxy_set_header Host              $proxy_host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        # --- Cloud Run (uncomment when BACKEND_URL is https://*.run.app) ---
-        # proxy_ssl_server_name on;                  # send SNI or Google 404s
-        # proxy_set_header    Host $proxy_host;       # route by BACKEND's host
+        # Send SNI on the upstream TLS handshake. REQUIRED for an https://
+        # upstream (App Runner / Cloud Run reject a handshake without it); a
+        # no-op for the local http upstream, so it's safe to leave on always.
+        proxy_ssl_server_name on;
     }
 
     # SPA: everything else falls back to index.html for client-side routing.
