@@ -12,10 +12,23 @@ dist-ssr/
 *.local
 
 # --- Secrets & local config (never ship) ---
+# Every real dotenv variant: .env, foo.env, .env.local, .env.production,
+# .env.docker, … The *.example templates are re-included just below so the
+# committed placeholders (.env.example, backend/.env.docker.example, …) survive.
 *.env
-# real compose secrets (not caught by *.env — ends in .docker, not .env):
-.env.docker
+.env
+.env.*
+!*.example
 *.db
+
+# --- Keys, certs, cloud credentials (defensive — none tracked today) ---
+*.pem
+*.key
+*.pfx
+*.p12
+id_rsa*
+.aws/
+*-service-account*.json
 
 # --- Editor / OS cruft ---
 .vscode/
@@ -37,3 +50,7 @@ apprunner-*.json
 
 # --- Personal Claude Code settings (local permissions) ---
 .claude/settings.local.json
+
+# --- Local scripts (nat-up/down, etc.) — but keep the tracked Docker entrypoint ---
+*.sh
+!docker/backend-entrypoint.sh

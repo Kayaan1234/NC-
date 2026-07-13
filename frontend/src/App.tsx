@@ -6,6 +6,7 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import RegisterSuccess from './pages/RegisterSuccess'
 import Dashboard from './pages/Dashboard'
+import RungTitle from './pages/RungTitle'
 import VerifyEmail from './pages/VerifyEmail'
 import VerifyRequired from './pages/VerifyRequired'
 import Account from './pages/Account'
@@ -57,6 +58,17 @@ export default function App() {
           element={
             <ProtectedRoute requireVerified>
               <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        {/* The exercise suite. The left exercise rail is rendered inside these
+            pages, so it exists only while you're in a rung and vanishes on the
+            way back to the dashboard. */}
+        <Route
+          path="/rung/:number"
+          element={
+            <ProtectedRoute requireVerified>
+              <RungTitle />
             </ProtectedRoute>
           }
         />

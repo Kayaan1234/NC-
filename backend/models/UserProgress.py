@@ -45,7 +45,8 @@ class UserSolutions(Base):
     )
     passed: Mapped[bool] = mapped_column(Boolean, nullable=False)
     submitted_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    solution_code: Mapped[str] = mapped_column(String(1000), nullable=False)
+    # Nullable: a read-only exercise can be marked complete without submitted code.
+    solution_code: Mapped[str | None] = mapped_column(String(1000), nullable=True)
 
     user: Mapped["backend.models.user.User"] = relationship("User", back_populates="user_solutions")
     # A submission may spawn one hint session (gated behind this submission).

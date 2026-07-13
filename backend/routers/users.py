@@ -177,7 +177,12 @@ def get_user_dashboard(user: models.User, db: Session) -> DashboardOut:
         total = total_counts.get(rung.id, 0)
         completed = completed_counts.get(rung.id, 0)
         is_completed = total > 0 and completed == total
-        rung_status = "completed" if is_completed else ("unlocked" if previous_completed else "locked")
+        # An empty rung (no exercises authored yet — a "COMING SOON" placeholder)
+        # must never auto-unlock, even once the prior rung is completed. Requiring
+        # total > 0 keeps it "locked" (unlit), and since is_completed is False for
+        # it, previous_completed flips to False below — halting progression at the
+        # last authored rung instead of leaking into unbuilt content.
+        rung_status = "completed" if is_completed else ("unlocked" if previous_completed and total > 0 else "locked")
         # The current rung is the first unlocked-but-unfinished one — where the
         # user should pick up. Once set, later unlocked rungs don't overwrite it.
         if rung_status == "unlocked" and current_rung_number is None:

@@ -1,5 +1,6 @@
 import { tokenStore } from './tokenStore'
 import type {
+  DashboardData,
   DeleteAccountPayload,
   ForgotPasswordPayload,
   LoginPayload,
@@ -8,6 +9,7 @@ import type {
   RegisterResponse,
   ResetPasswordPayload,
   ResetPasswordTokenPayload,
+  RungExercises,
   TokenResponse,
   UpdateEmailPayload,
   User,
@@ -186,6 +188,15 @@ export const api = {
   logout: () => request<void>('/auth/logout', { method: 'POST' }),
 
   me: () => request<User>('/users/me', { auth: true }),
+
+  // The roadmap feed: every rung with its per-user status + progress. Verified-
+  // gated server-side (403 if the email isn't verified).
+  dashboard: () => request<DashboardData>('/users/me/dashboard', { auth: true }),
+
+  // One rung's exercises with this user's progress + resume pointer. Verified-
+  // gated; 404 if the rung number doesn't exist, 200 + [] if it has no exercises.
+  rungExercises: (rungNumber: number) =>
+    request<RungExercises>(`/rungs/${rungNumber}/exercises`, { auth: true }),
 
   // Public: the token comes from the email link, the clicker may be logged out.
   verifyEmail: (token: string) =>

@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from scalar_fastapi import get_scalar_api_reference
 from backend.routers.auth import router as auth_router
 from backend.routers.users import router as user_router
+from backend.routers.rungs import router as rungs_router
 
 from backend.core.config import settings
 from backend.database import engine, Base
@@ -57,6 +58,7 @@ app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 app.add_exception_handler(CooldownError, cooldown_exception_handler)
 app.include_router(auth_router)
 app.include_router(user_router)
+app.include_router(rungs_router)
 
 
 app.add_middleware(

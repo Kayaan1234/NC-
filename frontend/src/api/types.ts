@@ -24,6 +24,50 @@ export interface User {
   verified: boolean
 }
 
+/** One rung of the roadmap as the dashboard sees it. Mirrors
+ *  backend/schemas/auth.py RungProgressOut. `status` is computed server-side
+ *  from the user's progress; a "locked" rung with `exercises_total === 0` is a
+ *  not-yet-authored "COMING SOON" placeholder (its `title` is literally that). */
+export type RungStatus = 'locked' | 'unlocked' | 'completed'
+
+export interface RungProgress {
+  id: string
+  number: number
+  slug: string
+  title: string
+  status: RungStatus
+  exercises_completed: number
+  exercises_total: number
+}
+
+/** GET /users/me/dashboard — the roadmap feed. `current_rung_number` is the
+ *  first unlocked-but-unfinished rung (where the learner should pick up), or
+ *  null once nothing is in progress. */
+export interface DashboardData {
+  rungs: RungProgress[]
+  current_rung_number: number | null
+}
+
+/** GET /rungs/{number}/exercises — one rung's exercises with this user's
+ *  progress. Mirrors backend UserRungProgressResponse / ExerciseListItem. */
+export type ExerciseProgressStatus = 'not_started' | 'in_progress' | 'completed'
+
+export interface ExerciseListItem {
+  id: string
+  slug: string
+  title: string
+  order_index: number
+  status: ExerciseProgressStatus
+  read_only: boolean
+}
+
+export interface RungExercises {
+  exercises: ExerciseListItem[]
+  /** Slug of the first not-completed exercise (resume point), or null when the
+   *  rung is empty or fully complete. */
+  next_incomplete_slug: string | null
+}
+
 export interface RegisterPayload {
   username: string
   email: string

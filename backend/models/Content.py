@@ -1,7 +1,7 @@
 from datetime import datetime
 import uuid
 
-from sqlalchemy import Integer, String, Text, ForeignKey, Uuid, UniqueConstraint
+from sqlalchemy import Boolean, Integer, String, Text, ForeignKey, Uuid, UniqueConstraint
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from backend.database import Base
@@ -35,13 +35,17 @@ class Exercise(Base):
     slug: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
-    starter_code: Mapped[str] = mapped_column(Text, nullable=False)
+    # Read-only / runnable-demo exercises ship no starter scaffold — only the full
+    # runnable model_solution — so starter_code is optional.
+    starter_code: Mapped[str | None] = mapped_column(Text, nullable=True)
     model_solution: Mapped[str] = mapped_column(Text, nullable=False)
+    read_only: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     rung: Mapped["Rungs"] = relationship(back_populates="exercises")
     hints: Mapped[list["Hint"]] = relationship(
         back_populates="exercise", cascade="all, delete-orphan", order_by="Hint.order_index"
     )
+
 
 
 class Hint(Base):

@@ -121,3 +121,22 @@ class RungProgressOut(BaseModel):
 class DashboardOut(BaseModel):
     rungs: list[RungProgressOut]
     current_rung_number: int | None = None
+
+class ExerciseProgressStatus(str, PyEnum):
+    NOT_STARTED = "not_started"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+
+class ExerciseListItem(BaseModel):
+    id: UUID
+    slug: str
+    title: str
+    order_index: int
+    status: ExerciseProgressStatus  # not_started / in_progress / completed — the user's progress
+    read_only: bool
+
+class UserRungProgressResponse(BaseModel):
+    exercises: list[ExerciseListItem]
+    # Slug of the first exercise the user hasn't completed (resume point), or None
+    # when the rung is empty or every exercise is done.
+    next_incomplete_slug: str | None = None
