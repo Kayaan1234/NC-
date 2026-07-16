@@ -16,6 +16,19 @@ RUN python -m venv /opt/venv \
  && /opt/venv/bin/pip install --upgrade pip \
  && /opt/venv/bin/pip install -r requirements.lock.txt
 
+# ---- ccbuild: compile the Step0 training binary FOR LINUX.
+# The worker (`python -m backend.worker`) shells out to this binary via
+# services/runner.py. The committed `nn` is a macOS build that can't run in the
+# container (and .dockerignore keeps it out of the context), so the image builds
+# its own. gcc:13 is bookworm-based, matching the python:3.11-slim runtime, and
+# -static-libstdc++/-static-libgcc drop the C++ runtime deps so the binary runs
+# on the slim image whether or not libstdc++6 happens to be installed there.
+# Flags otherwise mirror services/Step0/Makefile (C++17 is required).
+FROM gcc:13-bookworm AS ccbuild
+WORKDIR /build
+COPY backend/services/Step0/ ./Step0/
+RUN cd Step0 && g++ -std=c++17 -O2 -Wall -Wextra -static-libstdc++ -static-libgcc -o nn main.cpp
+
 # ---- runtime: slim image, non-root, migrate-then-serve
 FROM python:3.11-slim AS runtime
 ENV PYTHONUNBUFFERED=1 \
@@ -24,6 +37,10 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /app
 COPY --from=deps /opt/venv /opt/venv
 COPY backend ./backend
+# Drop the freshly compiled Linux training binary in over the source tree (the
+# macOS one was excluded from the context). Same image serves the API and the
+# worker; only the worker runs it, but it lives in the one shared image.
+COPY --from=ccbuild /build/Step0/nn ./backend/services/Step0/nn
 # Alembic migrations are run in the entrypoint, so copy the migration scripts too, entry point needs them to run migrations before starting the server.
 COPY docker/backend-entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh \

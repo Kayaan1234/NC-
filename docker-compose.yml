@@ -24,12 +24,45 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+    image: ncplusplus-backend         # tag it so `worker` can reuse the same image
     env_file: ./backend/.env.docker   # DATABASE_URL host is `db`, not localhost
     depends_on:
       db:
         condition: service_healthy
     expose:
       - "8000"                        # only the web proxy needs to reach it
+    # The entrypoint runs `alembic upgrade head` before uvicorn, so the backend
+    # only reports healthy once migrations are applied. `worker` waits on that.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 20s
+
+  # Training executor — the SAME image as `backend`, run as a background claim
+  # loop instead of the API (App Runner CPU-throttles background work, so in prod
+  # this lives on separate always-on compute; locally it's just another service).
+  # Scale freely: `docker compose up --scale worker=3` is safe — the worker
+  # claims jobs with SELECT ... FOR UPDATE SKIP LOCKED, so no two ever collide.
+  worker:
+    # Same build + image tag as `backend`, so this is the one shared image (built
+    # once; the second build is a full cache hit). The build section is required:
+    # with only `image:`, `compose up` tries to PULL ncplusplus-backend from a
+    # registry — where it doesn't exist — and fails "pull access denied".
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: ncplusplus-backend
+    # Override the migrate-then-uvicorn entrypoint: this process is the worker,
+    # not the API, and migrations run once via `backend`. Overriding entrypoint
+    # in Compose also clears the image's uvicorn CMD.
+    entrypoint: ["python", "-m", "backend.worker"]
+    env_file: ./backend/.env.docker
+    depends_on:
+      backend:
+        condition: service_healthy    # i.e. after migrations have run
+    restart: unless-stopped
 
   web:
     build:

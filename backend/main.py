@@ -7,10 +7,10 @@ from fastapi.responses import JSONResponse
 from scalar_fastapi import get_scalar_api_reference
 from backend.routers.auth import router as auth_router
 from backend.routers.users import router as user_router
-from backend.routers.rungs import router as rungs_router
+from backend.routers.train import router as train_router
+
 
 from backend.core.config import settings
-from backend.database import engine, Base
 
 from backend.core.limiter import limiter
 from backend.core.errors import CooldownError, cooldown_exception_handler
@@ -46,11 +46,6 @@ def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSO
     return JSONResponse(status_code=429, content=body, headers=headers)
 
 
-# Dev convenience: auto-create tables. For the Postgres cutover, replace this
-# with Alembic migrations and remove the call (see prod next-steps).
-
-
-
 app = FastAPI()
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
@@ -58,7 +53,8 @@ app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 app.add_exception_handler(CooldownError, cooldown_exception_handler)
 app.include_router(auth_router)
 app.include_router(user_router)
-app.include_router(rungs_router)
+app.include_router(train_router)
+
 
 
 app.add_middleware(
@@ -87,4 +83,3 @@ def get_scalar_docs():
     )
 
     
-

@@ -147,8 +147,16 @@ def refresh(response: Response, db: Annotated[Session, Depends(get_db)], refresh
 
     token_hash = hash_token(refresh_token)
 
-    result =  db.execute(
-        select(models.RefreshToken).where(models.RefreshToken.token_hash == token_hash)
+    # with_for_update: rotation is read-check-then-revoke, so two concurrent
+    # refreshes presenting the SAME cookie would both read revoked=False and both
+    # mint a new token — a double-spend that in-process locks can't stop across
+    # scaled-out instances. Row-locking the token here serializes them in the DB:
+    # the second waits for the first to commit, then re-reads revoked=True below
+    # and 401s. The check MUST stay after the lock is acquired (it does).
+    result = db.execute(
+        select(models.RefreshToken)
+        .where(models.RefreshToken.token_hash == token_hash)
+        .with_for_update()
     )
     token = result.scalar_one_or_none()
 

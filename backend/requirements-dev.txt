@@ -1,4 +1,0 @@
-# Test-only dependencies (kept out of the runtime image).
--r requirements.txt
-pytest
-httpx  # TestClient transport (already a FastAPI extra, pinned here for tests)

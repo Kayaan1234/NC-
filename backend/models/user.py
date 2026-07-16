@@ -7,6 +7,7 @@ import uuid
 
 import backend.models.RefreshToken
 import backend.models.EmailToken
+import backend.models.TrainingJob
 
 class User(Base):
     __tablename__ = "users"
@@ -28,8 +29,5 @@ class User(Base):
 
     refresh_tokens : Mapped[list["backend.models.RefreshToken.RefreshToken"]] = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
     email_tokens : Mapped[list["backend.models.EmailToken.EmailToken"]] = relationship("EmailToken", back_populates="user", cascade="all, delete-orphan")
-    user_solutions : Mapped[list["backend.models.UserProgress.UserSolutions"]] = relationship("UserSolutions", back_populates="user", cascade="all, delete-orphan")
-    exercise_progress : Mapped[list["backend.models.UserProgress.UserExerciseProgress"]] = relationship("UserExerciseProgress", back_populates="user", cascade="all, delete-orphan")
-
-    user_hint_views : Mapped[list["backend.models.UserProgress.UserHintViews"]] = relationship("UserHintViews", back_populates="user", cascade="all, delete-orphan")
-    hint_sessions : Mapped[list["backend.models.LlmHint.LlmHintSession"]] = relationship("LlmHintSession", back_populates="user", cascade="all, delete-orphan")
+    training_jobs : Mapped[list["backend.models.TrainingJob.TrainingJob"]] = relationship("TrainingJob", back_populates="user", cascade="all, delete-orphan")
+    

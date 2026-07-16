@@ -12,3 +12,7 @@
 **/.env.*
 .git
 .gitignore
+# Compiled training binaries are platform-specific (the committed one is macOS).
+# The image compiles its own Linux build in a dedicated stage, so keep the host
+# binary out of the context entirely.
+backend/services/**/nn

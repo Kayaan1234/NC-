@@ -39,6 +39,10 @@ id_rsa*
 # --- Markdown / planning docs (not shipped to production) ---
 *.md
 
+# --- Compiled training binaries (built per-machine via services/*/Makefile) ---
+# Platform-specific: a macOS build won't run in a Linux container.
+backend/services/**/nn
+
 # --- Python test cache ---
 .pytest_cache/
 

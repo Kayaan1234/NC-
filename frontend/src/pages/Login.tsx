@@ -1,80 +1,63 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../auth/AuthContext'
-import { ApiError } from '../api/client'
-import { useCountdown, formatCountdown } from '../auth/useCountdown'
+import { useAuth } from '../auth'
 
 export default function Login() {
   const { login } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  const { remaining, start } = useCountdown()
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setError(null)
+    setError('')
     setBusy(true)
     try {
-      const me = await login({ email, password })
-      navigate(me.verified ? '/dashboard' : '/verify-required')
+      await login(email, password)
+      navigate('/')
     } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.message)
-        // Too many attempts: lock the button for the exact backend cooldown.
-        if (err.status === 429 && err.retryAfter) start(err.retryAfter)
-      } else {
-        setError('Something went wrong')
-      }
+      setError(err instanceof Error ? err.message : 'Login failed')
     } finally {
       setBusy(false)
     }
   }
 
-  const locked = remaining > 0
-
   return (
-    <div className="auth-page">
-      <div className="auth-card card">
-        <p className="eyebrow mono">welcome back</p>
-        <h1>Log in</h1>
-        {error && <div className="alert alert-error">{error}</div>}
-        <form onSubmit={onSubmit} noValidate>
-          <div className="field">
-            <label htmlFor="email">email</label>
-            <input
-              id="email"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="password">password</label>
-            <input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-          <button className="btn btn-primary full" type="submit" disabled={busy || locked}>
-            {busy ? 'logging in…' : locked ? `Try again in ${formatCountdown(remaining)}` : 'Log in'}
-          </button>
-        </form>
-        <p className="auth-alt">
-          <Link to="/forgot-password">Forgot your password?</Link>
-        </p>
-        <p className="auth-alt">
-          No account? <Link to="/register">Create one</Link>
-        </p>
-      </div>
+    <div>
+      <h1>Log in</h1>
+      <form onSubmit={onSubmit}>
+        <div>
+          <label htmlFor="email">Email</label>
+          <br />
+          <input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+        </div>
+        <div>
+          <label htmlFor="password">Password</label>
+          <br />
+          <input
+            id="password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+        </div>
+        <button type="submit" disabled={busy}>
+          {busy ? 'Logging in...' : 'Log in'}
+        </button>
+      </form>
+      {error && <p>{error}</p>}
+      <p>
+        <Link to="/register">Register</Link> | <Link to="/forgot-password">Forgot password</Link>
+      </p>
     </div>
   )
 }

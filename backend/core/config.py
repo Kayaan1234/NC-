@@ -60,9 +60,33 @@ class Settings(BaseSettings):
     # NOTE: get_remote_address reads the socket peer, so behind a reverse proxy
     # every request looks like the proxy IP. In prod, terminate that upstream
     # (WAF/edge limiter) and/or configure trusted X-Forwarded-For handling.
+    #   _TRAIN:      queueing a training job — each one spawns a real process,
+    #                so this caps how much compute one IP can enqueue.
     RATE_LIMIT_EMAIL_SEND: str = "5/hour"
     RATE_LIMIT_AUTH: str = "10/minute"
     RATE_LIMIT_TOKEN: str = "20/minute"
+    RATE_LIMIT_TRAIN: str = "20/hour"
+
+    # Training jobs.
+    # Jobs are executed by a separate worker process (`python -m backend.worker`),
+    # never inside the API — App Runner throttles container CPU whenever no
+    # request is in flight, so work started after a response returns would be
+    # starved, and instance recycling would kill it regardless. Until that worker
+    # has a home in prod, keep TRAINING_ENABLED=false there: POST would otherwise
+    # queue jobs that nothing ever drains.
+    TRAINING_ENABLED: bool = True
+    JOB_POLL_INTERVAL_SECONDS: float = 1.0
+    JOB_HEARTBEAT_SECONDS: int = 10
+    # How long a RUNNING job may go without a heartbeat before the worker treats
+    # it as abandoned and fails it, freeing that user's one active slot.
+    #
+    # INVARIANT: this is a multiple of JOB_HEARTBEAT_SECONDS, and must stay
+    # comfortably above it so a slow tick can't kill a healthy job. It is
+    # deliberately INDEPENDENT of how long a job runs — liveness is proven by the
+    # heartbeat, not by elapsed time. A 20-minute job beating every 10s is
+    # healthy; a 20-second job silent for 90s is dead. Do not tie this to
+    # ModelSpec.timeout_seconds.
+    JOB_HEARTBEAT_STALE_SECONDS: int = 90
 
     # Database
     DATABASE_URL: str

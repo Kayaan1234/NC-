@@ -3,8 +3,20 @@ from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
 from backend.core.config import settings
 
-# check_same_thread is a SQLite-only connect arg; Postgres (psycopg) rejects it.
-connect_args = {"check_same_thread": False} if settings.DATABASE_URL.startswith("sqlite") else {}
+if settings.DATABASE_URL.startswith("sqlite"):
+    # check_same_thread is a SQLite-only connect arg; Postgres (psycopg) rejects
+    # it. SQLite's func.now() already returns UTC, so no timezone pin is needed.
+    connect_args = {"check_same_thread": False}
+else:
+    # Pin the Postgres session timezone to UTC. Otherwise the session inherits the
+    # server's zone (this deployment's is Europe/London), and every
+    # server_default=func.now() column is stored in local wall-clock time while the
+    # app writes datetime.now(timezone.utc) everywhere else. The two are an hour
+    # apart under BST (zero in winter, so it hides), which silently skews any
+    # comparison between them — most visibly the email verification/reset resend
+    # cooldowns, which stretch to ~70 minutes. libpq reads `-c timezone=utc` from
+    # the options string. See SCALABILITY_AUDIT.md.
+    connect_args = {"options": "-c timezone=utc"}
 engine = create_engine(settings.DATABASE_URL, connect_args=connect_args, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine) #control whether changes are automatically committed to the database or not. If autocommit is set to True, changes will be committed automatically after each statement. If set to False, you need to explicitly call commit() to save changes. 
 
