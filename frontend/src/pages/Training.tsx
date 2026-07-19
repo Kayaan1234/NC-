@@ -2,143 +2,26 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, downloadFile } from '../api'
 import { useAuth } from '../auth'
+import { ACTIVE, message, type Job, type ModelSpec } from '../train'
 
-// Mirrors the backend ModelSpecResponse / JobStatusResponse (see routers/train.py).
-type ModelParams = {
-  datasets: string[]
-  lr_min: number
-  lr_max: number
-  lr_default: number
-  epochs_max: number
-  epochs_default: number
-}
-
-type ModelSpec = {
-  model_id: string
-  name: string
-  description: string
-  params: ModelParams
-}
-
-type Job = {
-  id: string
-  model_id: string
-  params: Record<string, unknown>
-  status: string
-  result: Record<string, unknown> | null
-  error: string | null
-  queue_position: number | null
-  report_available: boolean
-}
-
-// The two non-terminal states. While a job is in one of these it still holds the
-// user's single slot, and it's worth polling.
-const ACTIVE = new Set(['queued', 'running'])
-
-function message(err: unknown, fallback: string): string {
-  return err instanceof Error ? err.message : fallback
-}
+// The training menu: the intermediate page between Home and a model's config
+// form. It lists the models available to train (each links to its own page at
+// /training/:modelId) and shows the user's job history, which is cross-model
+// (one active slot per user), so it belongs on the hub rather than any one
+// model's page.
 
 function accuracy(job: Job): string {
   const acc = job.result?.final_accuracy
   return typeof acc === 'number' ? `accuracy ${(acc * 100).toFixed(1)}%` : ''
 }
 
-function RunForm({ model, onQueued }: { model: ModelSpec; onQueued: () => void }) {
-  const p = model.params
-  // Kept as strings: an empty number input is a valid intermediate state, and the
-  // server validates the real bounds anyway (the min/max here are only hints).
-  const [dataset, setDataset] = useState(p.datasets[0])
-  const [lr, setLr] = useState(String(p.lr_default))
-  const [epochs, setEpochs] = useState(String(p.epochs_default))
-  const [seed, setSeed] = useState('42')
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
-
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setError('')
-    setBusy(true)
-    try {
-      await api(`/train/${model.model_id}/run`, {
-        method: 'POST',
-        auth: true,
-        body: { dataset, lr: Number(lr), epochs: Number(epochs), seed: Number(seed) },
-      })
-      onQueued()
-    } catch (err) {
-      // 409 (already have a job), 503 (disabled), 422 (bad param) all arrive here
-      // as the server's message.
-      setError(message(err, 'Could not queue training job'))
-    } finally {
-      setBusy(false)
-    }
-  }
-
+function ModelCard({ model }: { model: ModelSpec }) {
   return (
-    <form onSubmit={onSubmit}>
-      <h2>{model.name}</h2>
-      <p>{model.description}</p>
-      <div>
-        <label htmlFor="tr-dataset">Dataset</label>
-        <br />
-        <select id="tr-dataset" value={dataset} onChange={(e) => setDataset(e.target.value)}>
-          {p.datasets.map((d) => (
-            <option key={d} value={d}>
-              {d}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div>
-        <label htmlFor="tr-lr">Learning rate</label>
-        <br />
-        <input
-          id="tr-lr"
-          type="number"
-          step="any"
-          min={p.lr_min}
-          max={p.lr_max}
-          value={lr}
-          onChange={(e) => setLr(e.target.value)}
-          required
-        />
-      </div>
-      <div>
-        <label htmlFor="tr-epochs">Epochs</label>
-        <br />
-        <input
-          id="tr-epochs"
-          type="number"
-          min={1}
-          max={p.epochs_max}
-          value={epochs}
-          onChange={(e) => setEpochs(e.target.value)}
-          required
-        />
-      </div>
-      <div>
-        <label htmlFor="tr-seed">Seed</label>
-        <br />
-        <input
-          id="tr-seed"
-          type="number"
-          min={0}
-          value={seed}
-          onChange={(e) => setSeed(e.target.value)}
-          required
-        />
-      </div>
-      <button type="submit" disabled={busy}>
-        {busy ? 'Queuing...' : 'Run training'}
-      </button>
-      <p>
-        <small>
-          One job at a time. lr {p.lr_min}–{p.lr_max}, up to {p.epochs_max} epochs.
-        </small>
-      </p>
-      {error && <p>{error}</p>}
-    </form>
+    <li>
+      <Link to={`/training/${model.model_id}`}>{model.name}</Link>
+      <br />
+      <small>{model.description}</small>
+    </li>
   )
 }
 
@@ -185,7 +68,6 @@ function JobRow({ job }: { job: Job }) {
 export default function Training() {
   const { user } = useAuth()
   const [models, setModels] = useState<ModelSpec[]>([])
-  const [selected, setSelected] = useState('')
   const [jobs, setJobs] = useState<Job[]>([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -218,9 +100,7 @@ export default function Training() {
     }
     ;(async () => {
       try {
-        const ms = await api<ModelSpec[]>('/train/models', { method: 'GET', auth: true })
-        setModels(ms)
-        if (ms.length) setSelected(ms[0].model_id)
+        setModels(await api<ModelSpec[]>('/train/models', { method: 'GET', auth: true }))
         await loadJobs()
       } catch (err) {
         setError(message(err, 'Could not load training'))
@@ -255,26 +135,23 @@ export default function Training() {
     )
   }
 
-  const model = models.find((m) => m.model_id === selected)
-
   return (
     <div>
       <h1>Training</h1>
       {loading && <p>Loading...</p>}
       {error && <p>{error}</p>}
-      {models.length > 1 && (
-        <div>
-          <label htmlFor="tr-model">Model</label>{' '}
-          <select id="tr-model" value={selected} onChange={(e) => setSelected(e.target.value)}>
-            {models.map((m) => (
-              <option key={m.model_id} value={m.model_id}>
-                {m.name}
-              </option>
-            ))}
-          </select>
-        </div>
+
+      <h2>Models</h2>
+      {!loading && models.length === 0 ? (
+        <p>No models are available to train yet.</p>
+      ) : (
+        <ul>
+          {models.map((m) => (
+            <ModelCard key={m.model_id} model={m} />
+          ))}
+        </ul>
       )}
-      {model && <RunForm model={model} onQueued={loadJobs} />}
+
       <hr />
       <h2>Your jobs</h2>
       {jobs.length === 0 ? (

@@ -58,6 +58,11 @@ export default function Login() {
       <p>
         <Link to="/register">Register</Link> | <Link to="/forgot-password">Forgot password</Link>
       </p>
+      <p>
+        <small>
+          <Link to="/privacy">Privacy Policy</Link>
+        </small>
+      </p>
     </div>
   )
 }

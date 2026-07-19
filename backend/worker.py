@@ -20,6 +20,7 @@ strictly FIFO.
 import logging
 import signal
 import sys
+import threading
 import time
 from datetime import timedelta
 from types import FrameType
@@ -30,6 +31,7 @@ from sqlalchemy.orm import Session
 from backend.core.config import settings
 from backend.database import SessionLocal
 from backend.models.TrainingJob import JobStatus, TrainingJob, utcnow as _utcnow
+from backend.services import email_drain
 from backend.services.registry import get_model
 from backend.services.runner import run_training
 
@@ -161,6 +163,23 @@ def _handle_signal(signum: int, _frame: FrameType | None) -> None:
     logger.info("signal %s received; finishing up", signum)
 
 
+def _start_email_thread() -> threading.Thread:
+    """Launch the outbox drain on its own thread with its own DB session.
+
+    Separate from the training loop on purpose: a training run can hold the main
+    loop for minutes, and a verification email must not wait behind it. Daemon so
+    it never blocks process exit; it stops when it observes _shutdown.
+    """
+    thread = threading.Thread(
+        target=email_drain.run,
+        args=(lambda: _shutdown,),
+        name="email-drain",
+        daemon=True,
+    )
+    thread.start()
+    return thread
+
+
 def main() -> None:
     logging.basicConfig(
         level=logging.INFO,
@@ -183,11 +202,30 @@ def main() -> None:
     # spin on a dead session — pool_pre_ping validates a connection at checkout,
     # not one a session is already holding. A long-lived deployed worker wants a
     # fresh session per iteration, or reconnect-on-error.
+    # The email outbox is drained regardless of TRAINING_ENABLED: deploy this
+    # worker at launch and signup/verification email flows immediately; flip
+    # TRAINING_ENABLED on later to start draining training jobs too.
+    email_thread = _start_email_thread()
+
     db = SessionLocal()
     current: TrainingJob | None = None
     try:
         while not _shutdown:
             try:
+                # Watchdog: the email drain loop swallows transient errors itself,
+                # so a dead thread means something unexpected — restart it rather
+                # than let the outbox silently stop draining.
+                if not _shutdown and not email_thread.is_alive():
+                    logger.error("email drain thread died; restarting")
+                    email_thread = _start_email_thread()
+
+                if not settings.TRAINING_ENABLED:
+                    # Email-only mode: the queue is never fed (the API 503s POSTs
+                    # when training is disabled), so idle the training loop while
+                    # the email thread keeps working.
+                    time.sleep(settings.JOB_POLL_INTERVAL_SECONDS)
+                    continue
+
                 reclaim_stale(db)
                 current = claim_one(db)
                 if current is None:
@@ -207,6 +245,9 @@ def main() -> None:
             release(db, current)
     finally:
         db.close()
+        # _shutdown is already set; give the email thread a moment to finish its
+        # current row and exit cleanly (it's a daemon, so this never hangs exit).
+        email_thread.join(timeout=10)
         logger.info("worker stopped")
 
 

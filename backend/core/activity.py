@@ -13,12 +13,13 @@ running, so `is_active` can drift stale between endpoint updates.
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import exists, select
 from sqlalchemy.orm import Session
 
 from backend import models
+from backend.core.config import settings
 
 
 def utcnow() -> datetime:
@@ -41,7 +42,20 @@ def has_active_refresh_token(db: Session, user_id: uuid.UUID) -> bool:
 def touch_activity(user: models.User) -> None:
     """Record a live-session activity heartbeat (login / refresh).
 
-    Stages the change on `user`; the caller commits.
+    Stages the change on `user`; the caller commits. To avoid a users-row write
+    on every refresh (which fires ~every access-token TTL per active user), skip
+    the update when it wouldn't change anything: the user is already active and
+    last_used was written within ACTIVITY_WRITE_THROTTLE_MINUTES. Login still
+    records activity because last_used is None/stale then, and is_active is only
+    ever set True here (cleared elsewhere on logout/revoke), so an already-active
+    refreshing user needs no rewrite.
     """
-    user.last_used = utcnow()
+    now = utcnow()
+    if (
+        user.is_active
+        and user.last_used is not None
+        and now - user.last_used < timedelta(minutes=settings.ACTIVITY_WRITE_THROTTLE_MINUTES)
+    ):
+        return
+    user.last_used = now
     user.is_active = True

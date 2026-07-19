@@ -1,37 +1,44 @@
-# Single-origin front door: serve the built React app AND reverse-proxy the API.
-# ${PORT} and ${BACKEND_URL} are filled in by envsubst at container start.
+# Single-origin front door: serve the built React app AND reverse-proxy the API
+# to the uvicorn running on 127.0.0.1:8000 in THIS SAME container. There is no
+# separate backend service and no public backend URL — which is exactly what
+# makes the client IP below trustworthy for rate limiting: a caller cannot reach
+# uvicorn directly to forge X-Forwarded-For. ${PORT} is filled in at start-up.
 server {
     listen ${PORT};
     root   /usr/share/nginx/html;
     index  index.html;
 
-    # API: proxy the backend's route prefixes on the SAME origin. No path
-    # rewrite, so the /auth-scoped refresh cookie's path still matches. If you
-    # add a new top-level router, add its prefix here (or migrate to an /api
-    # prefix). Kept in sync with the routers registered in backend/main.py:
-    # auth, users, train (+ the health and scalar-docs endpoints). `rungs` was
-    # removed in the rebuild.
-    #
-    # The trailing (/|$) is load-bearing: without it `^/train` also matches the
-    # SPA's `/training` page (App.tsx deliberately uses /training, not /train),
-    # proxying it to the backend and 404ing instead of serving React. The
-    # boundary means only exact prefixes or their sub-paths proxy; /training
-    # falls through to the SPA fallback below.
+    # Recover the REAL client IP from the platform edge's X-Forwarded-For. The TCP
+    # peer nginx sees is always the App Runner ingress (a private address), never
+    # the client — an external attacker cannot make $remote_addr be RFC1918 — so
+    # trusting the private ranges as proxies is safe, and realip then walks the
+    # XFF chain to the rightmost untrusted hop = the true client. That value
+    # replaces $remote_addr for everything below.
+    #   [VERIFY] optionally narrow set_real_ip_from to App Runner's exact ingress
+    #   CIDR once known (log $remote_addr on a real request). The private ranges
+    #   are a safe, working default and also cover the local docker gateway.
+    set_real_ip_from 10.0.0.0/8;
+    set_real_ip_from 172.16.0.0/12;
+    set_real_ip_from 192.168.0.0/16;
+    real_ip_header X-Forwarded-For;
+    real_ip_recursive on;
+
+    # API: proxy the backend's route prefixes on the SAME origin. No path rewrite,
+    # so the /auth-scoped refresh cookie's path still matches. The trailing (/|$)
+    # is load-bearing: without it `^/train` also matches the SPA's `/training`
+    # page. Keep in sync with the routers in backend/main.py.
     location ~ ^/(auth|users|train|health|scalar)(/|$) {
-        proxy_pass ${BACKEND_URL};
-        # Host defaults to the upstream host from proxy_pass ($proxy_host). We set
-        # it explicitly for clarity — it must be the BACKEND's host, because a
-        # managed HTTPS upstream (App Runner / Cloud Run) routes by Host, so
-        # sending the web host ($host) would 404. Harmless for the local http
-        # upstream (FastAPI ignores Host — no TrustedHostMiddleware).
-        proxy_set_header Host              $proxy_host;
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host              $host;
+        # $remote_addr is now the REAL client (realip rewrote it). Send it as the
+        # SOLE X-Forwarded-For value — REPLACE, never $proxy_add_x_forwarded_for,
+        # which would append (and thereby let a client forge) the header. uvicorn
+        # runs with --forwarded-allow-ips=127.0.0.1, so it trusts this hop only.
         proxy_set_header X-Real-IP         $remote_addr;
-        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        # Send SNI on the upstream TLS handshake. REQUIRED for an https://
-        # upstream (App Runner / Cloud Run reject a handshake without it); a
-        # no-op for the local http upstream, so it's safe to leave on always.
-        proxy_ssl_server_name on;
+        proxy_set_header X-Forwarded-For   $remote_addr;
+        # Forward the edge's scheme so the Secure cookie logic sees https in prod.
+        # Empty locally (no edge sets it) -> uvicorn keeps the request's http.
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
     }
 
     # SPA: everything else falls back to index.html for client-side routing.

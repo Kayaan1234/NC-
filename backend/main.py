@@ -15,6 +15,7 @@ from backend.core.config import settings
 from backend.core.limiter import limiter
 from backend.core.errors import CooldownError, cooldown_exception_handler
 from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 
 def _retry_after_seconds(request: Request) -> int | None:
@@ -56,6 +57,15 @@ app.include_router(user_router)
 app.include_router(train_router)
 
 
+# Apply the Limiter's default_limits (core/limiter.py) to every route as a
+# catch-all — an undecorated endpoint (e.g. /refresh, /logout, a future route) is
+# never left wide open. Routes with an explicit @limiter.limit are skipped by the
+# middleware (their decorator handles them); /health is @limiter.exempt below.
+# ORDER MATTERS: add_middleware stacks last-added-outermost, so this must go
+# BEFORE the CORS middleware so CORS stays outermost and its headers are still
+# attached to the 429 responses SlowAPIMiddleware returns (the SPA reads them).
+app.add_middleware(SlowAPIMiddleware)
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -70,8 +80,16 @@ app.add_middleware(
 
 
 @app.get("/health", tags=["Health"])
+@limiter.exempt
 def health():
-    """Liveness probe for load balancers / orchestrators."""
+    """Liveness probe for load balancers / orchestrators.
+
+    @limiter.exempt keeps the default_limits catch-all off this route. App Runner's
+    health probes hit the container directly with no X-Forwarded-For, so nginx
+    realip can't rewrite them and they'd all key on one ingress IP — under the
+    default limit they'd 429, the probe would fail, and App Runner would recycle
+    instances in a loop. The exemption short-circuits before any limit is checked.
+    """
     return {"status": "ok"}
 
 

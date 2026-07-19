@@ -103,6 +103,12 @@ export default function Register() {
       </form>
       {error && <p>{error}</p>}
       <p>
+        <small>
+          By registering you agree to how we handle your data, described in our{' '}
+          <Link to="/privacy">Privacy Policy</Link>.
+        </small>
+      </p>
+      <p>
         <Link to="/login">Log in</Link>
       </p>
     </div>

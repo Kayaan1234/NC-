@@ -57,4 +57,4 @@ apprunner-*.json
 
 # --- Local scripts (nat-up/down, etc.) — but keep the tracked Docker entrypoint ---
 *.sh
-!docker/backend-entrypoint.sh
+!docker/web-entrypoint.sh

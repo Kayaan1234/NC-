@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Request, Response
+from fastapi import APIRouter, HTTPException, Depends, Request, Response
 from sqlalchemy.exc import IntegrityError
 import bcrypt
 from backend.database import get_db
@@ -16,9 +16,10 @@ from uuid import UUID
 from backend.core.deps import get_current_user, require_verified_user
 from backend.core.config import settings
 from backend.core.cookies import clear_refresh_cookie
-from backend.core.email import send_email_changed_notification
 from backend.core.errors import CooldownError
 from backend.core.limiter import limiter
+from backend.core.outbox import enqueue_email
+from backend.models.EmailOutbox import EmailType
 
 
 router = APIRouter(
@@ -85,7 +86,6 @@ def reset_password(
 def update_email(
     request: Request,
     body: UpdateEmailRequest,
-    background_tasks: BackgroundTasks,
     current_user: Annotated[models.User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)]
 ):
@@ -119,24 +119,25 @@ def update_email(
     current_user.email = body.new_email
     current_user.verified = False
     current_user.email_changed_at = now
+    # We intentionally DON'T revoke sessions on an email change (the current
+    # password was already required, and the new address isn't trusted until
+    # re-verified). Instead, warn the previous address so an unauthorised change
+    # is recoverable — the notice points at password reset, which does revoke.
+    # Enqueued BEFORE issue_email_verification so the warning, the email change,
+    # and the new verification token all commit in one transaction — and if the
+    # unique-email race below 400s, the warning is rolled back with them.
+    enqueue_email(db, EmailType.EMAIL_CHANGED, {"to_email": old_email, "new_email": body.new_email})
     # Stage the change; issue_email_verification commits it atomically with the
     # new token. enforce_cooldown=False: the once-per-day change limit above
     # already governs this path, so the 10-min resend throttle must not block
     # the verification email for a legitimate change. A unique-constraint race
     # on the new email surfaces here as IntegrityError -> clean 400, not a 500.
     try:
-        issue_email_verification(current_user, db, background_tasks, enforce_cooldown=False)
+        issue_email_verification(current_user, db, enforce_cooldown=False)
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=400, detail="Email already in use")
 
-    # We intentionally DON'T revoke sessions on an email change (the current
-    # password was already required, and the new address isn't trusted until
-    # re-verified). Instead, warn the previous address so an unauthorised change
-    # is recoverable — the notice points at password reset, which does revoke.
-    background_tasks.add_task(
-        send_email_changed_notification, to_email=old_email, new_email=body.new_email
-    )
     return ResendVerificationResponse(message="Email updated, verification email sent")
 
 

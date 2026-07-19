@@ -14,3 +14,6 @@ alembic
 resend
 starlette
 slowapi
+# Shared rate-limit counter storage in prod (RATE_LIMIT_STORAGE_URI=redis://...);
+# imported lazily by `limits`, so memory:// dev doesn't need it. <8 per limits.
+redis

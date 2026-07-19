@@ -4,8 +4,14 @@ from pathlib import Path
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
+from sqlalchemy import text
 
 from alembic import context
+
+# Fixed key for the Postgres advisory lock that serializes concurrent
+# `alembic upgrade` runs (see run_migrations_online). Any stable 64-bit int works;
+# it only needs to be the same across every instance running these migrations.
+MIGRATION_LOCK_KEY = 728194655012
 
 # env.py lives at backend/alembic/env.py. The application is imported as the
 # `backend` package (e.g. `from backend.core.config import settings`), so the
@@ -73,6 +79,25 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
+        # Serialize concurrent `alembic upgrade` across instances. App Runner's
+        # rolling deploy starts several web containers that each run the
+        # entrypoint's `upgrade head` at once; alembic takes no lock of its own,
+        # so two runners racing a CREATE/ALTER hit a duplicate-object error and
+        # the loser's container exits. A Postgres SESSION-level advisory lock on
+        # THIS migration connection makes the first runner migrate while the rest
+        # block, then see head and no-op. It releases when the connection closes
+        # (NullPool → real close), even on error. The lock MUST be held on the
+        # same connection that runs the migrations — a shell `psql -c` would drop
+        # it the instant psql exits. Guards the concurrent-upgrade race only, NOT
+        # old-code/new-schema straddle during a rolling deploy (that needs
+        # expand/contract migrations). Postgres-only; SQLite has no advisory
+        # locks. See DEPLOYMENT_AUDIT_DELTA.md D5.
+        if connection.dialect.name == "postgresql":
+            connection.execute(text("SELECT pg_advisory_lock(:key)"), {"key": MIGRATION_LOCK_KEY})
+            # Close the implicit txn the acquire opened; the session-level lock
+            # survives commit and stays held until the connection closes.
+            connection.commit()
+
         context.configure(
             connection=connection, target_metadata=target_metadata
         )

@@ -5,9 +5,11 @@ import Home from './pages/Home'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Training from './pages/Training'
+import TrainingModel from './pages/TrainingModel'
 import ForgotPassword from './pages/ForgotPassword'
 import PasswordReset from './pages/PasswordReset'
 import VerifyEmail from './pages/VerifyEmail'
+import Privacy from './pages/Privacy'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -57,6 +59,17 @@ export default function App() {
           </RequireAuth>
         }
       />
+      {/* Per-model config page, reached from the /training menu. Same /training
+          prefix (deliberately not /train — see the comment above) so it isn't
+          proxied to the backend on a full-page load. */}
+      <Route
+        path="/training/:modelId"
+        element={
+          <RequireAuth>
+            <TrainingModel />
+          </RequireAuth>
+        }
+      />
       <Route
         path="/login"
         element={
@@ -85,6 +98,8 @@ export default function App() {
           logged in — so these two are not PublicOnly. */}
       <Route path="/password-reset" element={<PasswordReset />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
+      {/* Public legal page: readable logged in OR out, so no gate wrapper. */}
+      <Route path="/privacy" element={<Privacy />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

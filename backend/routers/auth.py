@@ -1,10 +1,10 @@
 
 from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks, Request, Cookie, Response
+from fastapi import APIRouter, HTTPException, Depends, status, Request, Cookie, Response
 
 from backend import models
 from backend.schemas.auth import ForgotPasswordToken, RegisterRequest, RegisterResponse, LoginRequest, ResetPasswordRequest, TokenResponse, ResendVerificationResponse, VerifyEmailRequest, ForgotPasswordRequest, ValidateResetTokenRequest
-from backend.database import get_db, SessionLocal
+from backend.database import get_db
 from typing import Annotated
 from sqlalchemy.orm import Session
 from sqlalchemy import select, update
@@ -16,9 +16,10 @@ from backend.core.cookies import set_refresh_cookie, clear_refresh_cookie
 from backend.core.activity import has_active_refresh_token, touch_activity
 from backend.core.config import settings
 from backend.core.deps import get_current_user
-from backend.core.email import send_account_exists_email
-from backend.core.verification import issue_email_verification, issue_password_reset
+from backend.core.outbox import enqueue_email
+from backend.core.verification import issue_email_verification
 from backend.core.limiter import limiter
+from backend.models.EmailOutbox import EmailType
 
 
 # Same body whether the email was free or already taken — see RegisterResponse.
@@ -44,7 +45,7 @@ _DUMMY_PASSWORD_HASH = bcrypt.hashpw(b"constant-time-login-dummy", bcrypt.gensal
                                                                                                                                                                                                  
 @router.post("/register", response_model = RegisterResponse)
 @limiter.limit(settings.RATE_LIMIT_EMAIL_SEND)
-def register(request: Request, body : RegisterRequest, db: Annotated[Session, Depends(get_db)], background_tasks: BackgroundTasks): #session is a database session that is automatically provided by FastAPI's dependency injection system. It allows the function to interact with the database without having to manually create and manage a session.
+def register(request: Request, body : RegisterRequest, db: Annotated[Session, Depends(get_db)]): #session is a database session that is automatically provided by FastAPI's dependency injection system. It allows the function to interact with the database without having to manually create and manage a session.
     # NOTE: kept as a sync `def` route on purpose. The DB session and bcrypt are
     # both blocking; FastAPI runs sync routes in a threadpool, so they don't block
     # the event loop. An `async def` here would block it.
@@ -71,8 +72,10 @@ def register(request: Request, body : RegisterRequest, db: Annotated[Session, De
     if existing_email:
         # Do NOT reveal that the address is taken. Return the same generic body
         # as a fresh signup and notify the real owner out-of-band; an attacker
-        # probing the API sees nothing, the account owner gets a heads-up.
-        background_tasks.add_task(send_account_exists_email, to_email=body.email)
+        # probing the API sees nothing, the account owner gets a heads-up. The
+        # notice is enqueued (durable) rather than fired as a BackgroundTask.
+        enqueue_email(db, EmailType.ACCOUNT_EXISTS, {"to_email": body.email})
+        db.commit()
         return RegisterResponse(message=GENERIC_REGISTER_MESSAGE)
 
     new_user = models.User(
@@ -94,11 +97,12 @@ def register(request: Request, body : RegisterRequest, db: Annotated[Session, De
         ).scalars().first()
         if raced_username:
             raise HTTPException(status_code=400, detail="Username already taken")
-        background_tasks.add_task(send_account_exists_email, to_email=body.email)
+        enqueue_email(db, EmailType.ACCOUNT_EXISTS, {"to_email": body.email})
+        db.commit()
         return RegisterResponse(message=GENERIC_REGISTER_MESSAGE)
     db.refresh(new_user)
 
-    issue_email_verification(new_user, db, background_tasks)
+    issue_email_verification(new_user, db)
 
     return RegisterResponse(message=GENERIC_REGISTER_MESSAGE)
 
@@ -138,7 +142,8 @@ def login(response: Response, request: Request, body: LoginRequest, db: Annotate
     return {"access_token": access_token, "user_id": str(user.id), "verified": user.verified}
 
 @router.post("/refresh")
-def refresh(response: Response, db: Annotated[Session, Depends(get_db)], refresh_token: Annotated[str | None, Cookie()] = None):
+@limiter.limit(settings.RATE_LIMIT_TOKEN)
+def refresh(request: Request, response: Response, db: Annotated[Session, Depends(get_db)], refresh_token: Annotated[str | None, Cookie()] = None):
     # The refresh token arrives only via the httpOnly cookie set at login. No
     # cookie (logged out, expired, or a cross-site request that SameSite=Strict
     # stripped) is indistinguishable from a bad token: same 401.
@@ -208,11 +213,11 @@ def logout(response: Response, db: Annotated[Session, Depends(get_db)], refresh_
 
 @router.post("/resend-verification")
 @limiter.limit(settings.RATE_LIMIT_EMAIL_SEND)
-def resend_verification(request: Request, background_tasks: BackgroundTasks, current_user: Annotated[models.User,Depends(get_current_user)], db: Annotated[Session, Depends(get_db)]):
+def resend_verification(request: Request, current_user: Annotated[models.User,Depends(get_current_user)], db: Annotated[Session, Depends(get_db)]):
     if current_user.verified:
         raise HTTPException(status_code=400, detail="Email is already verified")
 
-    issue_email_verification(current_user, db, background_tasks)
+    issue_email_verification(current_user, db)
     return ResendVerificationResponse(message="Verification email sent")
 
 
@@ -246,37 +251,17 @@ def verify_email(request: Request, body: VerifyEmailRequest, db: Annotated[Sessi
 
     return ResendVerificationResponse(message="Email verified")
 
-def _process_forgot_password(email: str) -> None:
-    """Look up the email and, if it belongs to a real user, mint+send a reset
-    link. Runs entirely inside a BackgroundTask (after the response is flushed),
-    so the DB lookup, token write, and email send never affect response timing.
-
-    Uses its own SessionLocal() — the request's get_db() session is already
-    closed by the time this executes. Any failure is swallowed by design (see
-    the try/except): the client got its generic 200 and must not be able to
-    infer anything from a later error either."""
-    db = SessionLocal()
-    try:
-        user = db.execute(
-            select(models.User).where(models.User.email == email)
-        ).scalars().first()
-        if user:
-            issue_password_reset(user, db)
-    except Exception:
-        db.rollback()
-    finally:
-        db.close()
-
-
 @router.post("/forgot-password")
 @limiter.limit(settings.RATE_LIMIT_EMAIL_SEND)
-def forgot_password(request: Request, body: ForgotPasswordRequest, background_tasks: BackgroundTasks):
-    # Do the lookup + issue off the request path so the existing-email and
-    # unknown-email cases are indistinguishable by response time. Returning the
-    # same generic body without a timing tell is what actually prevents email
-    # enumeration here — the generic message alone doesn't, since a synchronous
-    # DB write for real users would leak their existence through latency.
-    background_tasks.add_task(_process_forgot_password, body.email)
+def forgot_password(request: Request, body: ForgotPasswordRequest, db: Annotated[Session, Depends(get_db)]):
+    # Enqueue a resolve row carrying ONLY the raw email — no user lookup happens
+    # here. The request therefore does the exact same single INSERT whether or not
+    # the address is registered, so response time can't be used to enumerate
+    # accounts. The worker's drainer resolves the address, applies the reset
+    # cooldown, mints the token, and enqueues the actual reset email — all off the
+    # request path, and durably (a dropped BackgroundTask used to lose it).
+    enqueue_email(db, EmailType.FORGOT_PASSWORD_REQUEST, {"email": body.email})
+    db.commit()
 
     return ResendVerificationResponse(message="If the email is registered, a password reset link has been sent")
 

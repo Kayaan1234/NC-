@@ -1,4 +1,4 @@
-# Local full-stack: Postgres + backend (uvicorn) + web (nginx single-origin).
+# Local full-stack: Postgres + app (single-origin nginx+uvicorn) + worker.
 # Browse the app at http://localhost:8080
 #
 # Needs POSTGRES_PASSWORD — Compose reads it from a git-ignored root `.env`
@@ -20,63 +20,50 @@ services:
       timeout: 3s
       retries: 10
 
-  backend:
+  # Single-origin front door: nginx serves the SPA and reverse-proxies the API to
+  # uvicorn in the SAME container (127.0.0.1:8000). One image, one public port.
+  # The entrypoint runs `alembic upgrade head` before serving, so the app only
+  # reports healthy once migrations are applied — `worker` waits on that.
+  app:
     build:
       context: .
-      dockerfile: backend/Dockerfile
-    image: ncplusplus-backend         # tag it so `worker` can reuse the same image
+      dockerfile: Dockerfile
+      target: web
+      args:
+        VITE_API_URL: ""              # same-origin: SPA calls /auth, /users, ...
+    image: ncplusplus-web
     env_file: ./backend/.env.docker   # DATABASE_URL host is `db`, not localhost
+    environment:
+      PORT: "8080"
     depends_on:
       db:
         condition: service_healthy
-    expose:
-      - "8000"                        # only the web proxy needs to reach it
-    # The entrypoint runs `alembic upgrade head` before uvicorn, so the backend
-    # only reports healthy once migrations are applied. `worker` waits on that.
+    ports:
+      - "8080:8080"                   # host 8080 -> nginx (which proxies uvicorn)
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      # Hit the health route THROUGH nginx so the whole proxy path is exercised.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health')"]
       interval: 5s
       timeout: 3s
       retries: 10
       start_period: 20s
 
-  # Training executor — the SAME image as `backend`, run as a background claim
-  # loop instead of the API (App Runner CPU-throttles background work, so in prod
-  # this lives on separate always-on compute; locally it's just another service).
-  # Scale freely: `docker compose up --scale worker=3` is safe — the worker
-  # claims jobs with SELECT ... FOR UPDATE SKIP LOCKED, so no two ever collide.
+  # Training executor + email-outbox drain. SEPARATE always-on process (App Runner
+  # CPU-throttles background work, so in prod this is Fargate). Uses the lean
+  # `worker` image target (python + Step0 binary, no nginx/SPA). Scale freely:
+  # `docker compose up --scale worker=3` is safe — jobs are claimed with
+  # SELECT ... FOR UPDATE SKIP LOCKED, so no two workers ever collide.
   worker:
-    # Same build + image tag as `backend`, so this is the one shared image (built
-    # once; the second build is a full cache hit). The build section is required:
-    # with only `image:`, `compose up` tries to PULL ncplusplus-backend from a
-    # registry — where it doesn't exist — and fails "pull access denied".
     build:
       context: .
-      dockerfile: backend/Dockerfile
-    image: ncplusplus-backend
-    # Override the migrate-then-uvicorn entrypoint: this process is the worker,
-    # not the API, and migrations run once via `backend`. Overriding entrypoint
-    # in Compose also clears the image's uvicorn CMD.
-    entrypoint: ["python", "-m", "backend.worker"]
+      dockerfile: Dockerfile
+      target: worker
+    image: ncplusplus-worker
     env_file: ./backend/.env.docker
     depends_on:
-      backend:
+      app:
         condition: service_healthy    # i.e. after migrations have run
     restart: unless-stopped
-
-  web:
-    build:
-      context: .
-      dockerfile: frontend/Dockerfile
-      args:
-        VITE_API_URL: ""              # same-origin: SPA calls /auth, /users, ...
-    environment:
-      PORT: "80"
-      BACKEND_URL: "http://backend:8000"  # service name = hostname on the network
-    depends_on:
-      - backend
-    ports:
-      - "8080:80"                     # host 8080 -> nginx 80
 
 volumes:
   pgdata:

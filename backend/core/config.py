@@ -57,15 +57,29 @@ class Settings(BaseSettings):
     #   _AUTH:       credential submission (login) — bcrypt DoS + credential
     #                stuffing.
     #   _TOKEN:      token-bearing endpoints (verify, reset, validate).
-    # NOTE: get_remote_address reads the socket peer, so behind a reverse proxy
-    # every request looks like the proxy IP. In prod, terminate that upstream
-    # (WAF/edge limiter) and/or configure trusted X-Forwarded-For handling.
     #   _TRAIN:      queueing a training job — each one spawns a real process,
     #                so this caps how much compute one IP can enqueue.
+    # These key on the client IP (get_remote_address). That IP is only trustworthy
+    # because the single-origin container derives it via nginx's realip module and
+    # uvicorn trusts ONLY 127.0.0.1 (--forwarded-allow-ips=127.0.0.1) — the backend
+    # has no public URL, so a caller can't reach uvicorn directly to forge XFF. See
+    # docker/nginx.conf.template and DEPLOYMENT_AUDIT_DELTA.md D2.
     RATE_LIMIT_EMAIL_SEND: str = "5/hour"
     RATE_LIMIT_AUTH: str = "10/minute"
     RATE_LIMIT_TOKEN: str = "20/minute"
     RATE_LIMIT_TRAIN: str = "20/hour"
+    #   _DEFAULT:    catch-all backstop applied to every route via
+    #                SlowAPIMiddleware (see core/limiter.py), so an undecorated
+    #                route (e.g. /refresh, /logout, a future endpoint) is never
+    #                wide open. /health is exempted. Kept generous because it keys
+    #                on client IP and users behind one corporate NAT share an IP.
+    RATE_LIMIT_DEFAULT: str = "120/minute"
+    # slowapi counter storage. Default in-memory is per-process, so with more than
+    # one API instance every limit is effectively N× looser. Point this at Redis
+    # (redis://host:6379) in prod so the counters are shared across instances. The
+    # `limits` backend for a scheme is imported lazily, so memory:// needs no redis
+    # package. See core/limiter.py.
+    RATE_LIMIT_STORAGE_URI: str = "memory://"
 
     # Training jobs.
     # Jobs are executed by a separate worker process (`python -m backend.worker`),
@@ -88,8 +102,39 @@ class Settings(BaseSettings):
     # ModelSpec.timeout_seconds.
     JOB_HEARTBEAT_STALE_SECONDS: int = 90
 
+    # Email outbox. Transactional emails are written to the email_outbox table in
+    # the same transaction as the change that triggers them, and delivered by a
+    # drain loop running on a thread inside the worker process (see
+    # backend.services.email_drain). This is durable where a FastAPI
+    # BackgroundTask is not: an App Runner instance recycled between response and
+    # send would silently drop the email — most damagingly a signup verification.
+    EMAIL_OUTBOX_POLL_SECONDS: float = 2.0
+    # Give up after this many failed delivery attempts and mark the row `dead`.
+    EMAIL_OUTBOX_MAX_ATTEMPTS: int = 6
+    # Exponential backoff between attempts: min(BASE * 2**(attempts-1), CAP).
+    EMAIL_OUTBOX_BACKOFF_BASE_SECONDS: int = 30
+    EMAIL_OUTBOX_BACKOFF_CAP_SECONDS: int = 3600
+    # A row left `sending` longer than this (its drainer died mid-delivery) is
+    # swept back to `queued`. Must exceed a realistic Resend call + retry latency.
+    EMAIL_OUTBOX_CLAIM_STALE_SECONDS: int = 300
+
     # Database
     DATABASE_URL: str
+    # SQLAlchemy connection pool, per process. Applied only on Postgres (SQLite
+    # uses its own pool class and rejects these). Sized so autoscaled API
+    # instances plus the worker stay within the RDS max_connections budget:
+    # each process holds up to DB_POOL_SIZE + DB_MAX_OVERFLOW connections.
+    # DB_POOL_RECYCLE_SECONDS drops connections older than the window so RDS's
+    # idle reaping / failovers don't leave stale ones checked into the pool.
+    DB_POOL_SIZE: int = 5
+    DB_MAX_OVERFLOW: int = 5
+    DB_POOL_RECYCLE_SECONDS: int = 1800
+
+    # Skip re-writing users.last_used on activity (login/refresh) if the stored
+    # value is newer than this. Refresh fires ~every access-token TTL per active
+    # user; without the throttle that's a users-row write per refresh. See
+    # core/activity.touch_activity.
+    ACTIVITY_WRITE_THROTTLE_MINUTES: int = 5
 
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:5173"]

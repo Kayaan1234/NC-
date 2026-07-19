@@ -1,17 +1,17 @@
-import logging
-
 import resend
 
 from backend.core.config import settings
 
-logger = logging.getLogger(__name__)
+# These senders are called only by the outbox drainer (backend.services.
+# email_drain), never on the request path. They let Resend failures PROPAGATE so
+# the drainer can catch them and schedule a retry — swallowing here would turn a
+# transient Resend outage into a silently dropped email, the exact durability
+# hole the outbox exists to close. The raw token is trusted as-is; it was minted
+# and persisted by the caller, so this layer does no decoding/validation.
 
 
 def send_verification_email(token: str, to_email: str) -> None:
-    """Send the verification link. Runs inside a BackgroundTask, so there's no
-    client to surface failures to — log and move on. The user can re-trigger via
-    /auth/resend-verification. The raw token is trusted as-is here; it was minted
-    and persisted by the caller, so this layer does no decoding/validation."""
+    """Send the verification link."""
     resend.api_key = settings.RESEND_API_KEY
     # Link lands on the SPA, which POSTs the token to /auth/verify. Keeping it a
     # POST (not a GET on the API) means email scanners/link-preview bots that
@@ -29,10 +29,7 @@ def send_verification_email(token: str, to_email: str) -> None:
         ),
     }
 
-    try:
-        resend.Emails.send(params)
-    except Exception:
-        logger.exception("Failed to send verification email to %s", to_email)
+    resend.Emails.send(params)
 
 
 def send_account_exists_email(to_email: str) -> None:
@@ -40,8 +37,7 @@ def send_account_exists_email(to_email: str) -> None:
 
     /auth/register returns the same generic response whether or not the address
     is taken (no enumeration), so this email is how the *real* owner is told what
-    happened — the attacker probing the API never sees the victim's inbox. Runs
-    off the request path like the other senders: log failures and move on."""
+    happened — the attacker probing the API never sees the victim's inbox."""
     resend.api_key = settings.RESEND_API_KEY
     login_url = f"{settings.FRONTEND_URL}/login"
     forgot_url = f"{settings.FRONTEND_URL}/forgot-password"
@@ -60,10 +56,7 @@ def send_account_exists_email(to_email: str) -> None:
         ),
     }
 
-    try:
-        resend.Emails.send(params)
-    except Exception:
-        logger.exception("Failed to send account-exists email to %s", to_email)
+    resend.Emails.send(params)
 
 
 def send_email_changed_notification(to_email: str, new_email: str) -> None:
@@ -73,8 +66,7 @@ def send_email_changed_notification(to_email: str, new_email: str) -> None:
     revoke sessions — the change already re-authenticates with the current
     password and re-verifies the new address). If the change was unauthorised,
     this is the only message that reaches the legitimate owner, so it points them
-    at password reset — which DOES revoke every session — to lock an attacker
-    out. Runs off the request path like the other senders: log failures, move on.
+    at password reset — which DOES revoke every session — to lock an attacker out.
     """
     resend.api_key = settings.RESEND_API_KEY
     reset_url = f"{settings.FRONTEND_URL}/forgot-password"
@@ -93,16 +85,11 @@ def send_email_changed_notification(to_email: str, new_email: str) -> None:
         ),
     }
 
-    try:
-        resend.Emails.send(params)
-    except Exception:
-        logger.exception("Failed to send email-changed notification to %s", to_email)
+    resend.Emails.send(params)
 
 
 def send_password_reset_email(token: str, to_email: str) -> None:
-    """Send the password-reset link. Like send_verification_email, this runs off
-    the request path (inside forgot_password's BackgroundTask) so there's no
-    client to surface failures to — log and move on.
+    """Send the password-reset link.
 
     Note the URL differs from verification: it lands on the SPA's reset page, not
     /verify-email. Reusing send_verification_email here was the bug — that link
@@ -124,7 +111,4 @@ def send_password_reset_email(token: str, to_email: str) -> None:
         ),
     }
 
-    try:
-        resend.Emails.send(params)
-    except Exception:
-        logger.exception("Failed to send password reset email to %s", to_email)
+    resend.Emails.send(params)
