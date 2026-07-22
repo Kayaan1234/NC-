@@ -14,6 +14,7 @@ from backend.core.config import settings
 
 from backend.core.limiter import limiter
 from backend.core.errors import CooldownError, cooldown_exception_handler
+from backend.services.params import check_registry
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
@@ -46,6 +47,11 @@ def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSO
         headers["Retry-After"] = str(retry_after)
     return JSONResponse(status_code=429, content=body, headers=headers)
 
+
+# Refuse to boot on a malformed model registry — an entry whose bounds exceed the
+# hard ceiling, or whose default it would itself reject, is a bug that must
+# surface here rather than as a 422 the user can't explain (services/params.py).
+check_registry()
 
 app = FastAPI()
 app.state.limiter = limiter

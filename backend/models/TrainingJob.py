@@ -54,8 +54,9 @@ class TrainingJob(Base):
     user_id : Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     # Key into backend.services.registry.MODELS — not a path, never joined onto one.
     model_id : Mapped[str] = mapped_column(String(50), nullable=False)
-    # The validated TrainRequest as submitted. Stored verbatim so a finished
-    # report is self-describing even after the model's defaults or bounds change.
+    # The validated parameters as submitted (services/params.validate). Stored
+    # verbatim so a finished report is self-describing even after the model's
+    # defaults or bounds change.
     params : Mapped[dict] = mapped_column(JSON, nullable=False)
 
     # Stored as a plain string holding the enum's VALUE, deliberately not

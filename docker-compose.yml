@@ -50,10 +50,16 @@ services:
 
   # Training executor + email-outbox drain. SEPARATE always-on process (App Runner
   # CPU-throttles background work, so in prod this is Fargate). Uses the lean
-  # `worker` image target (python + Step0 binary, no nginx/SPA). Scale freely:
-  # `docker compose up --scale worker=3` is safe — jobs are claimed with
+  # `worker` image target (python + the training binaries, no nginx/SPA). Scale
+  # freely: `docker compose up --scale worker=3` is safe — jobs are claimed with
   # SELECT ... FOR UPDATE SKIP LOCKED, so no two workers ever collide.
+  #
+  # mem_limit mirrors the >=1GB the deployed task needs. Step1's MNIST loader
+  # materialises the whole idx file as doubles before applying --limit, so any
+  # MNIST run peaks near 500MB; the limit is here so a local run that overshoots
+  # gets OOM-killed in the container instead of swapping the host.
   worker:
+    mem_limit: 1500m
     build:
       context: .
       dockerfile: Dockerfile

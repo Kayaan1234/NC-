@@ -4,7 +4,7 @@ from backend.database import get_db
 from backend import models
 from backend.schemas.train import *
 from sqlalchemy.orm import Session
-from typing import Annotated
+from typing import Annotated, Any
 from fastapi import status
 from sqlalchemy import delete, func, select
 
@@ -14,7 +14,8 @@ from backend.core.deps import require_verified_user
 from backend.core.config import settings
 from backend.core.limiter import limiter
 from backend.models.TrainingJob import JobStatus, TrainingJob
-from backend.services.registry import MODELS, get_model
+from backend.services.params import ParamError, effective_max, validate
+from backend.services.registry import MODELS, ModelSpec, get_model
 
 router = APIRouter(
     prefix="/train",
@@ -28,19 +29,42 @@ router = APIRouter(
 ACTIVE_STATUSES = (JobStatus.QUEUED.value, JobStatus.RUNNING.value) 
 
 
-def _spec_response(spec) -> ModelSpecResponse:
+def _spec_response(spec: ModelSpec) -> ModelSpecResponse:
+    """Project a ModelSpec onto the wire.
+
+    Everything here is copied from the descriptors — nothing is hardcoded per
+    model. The one thing deliberately withheld is each parameter's `flag`: the
+    client never builds a command line, and the argv is assembled server-side
+    from the same specs (services/runner.build_argv).
+    """
     return ModelSpecResponse(
         model_id=spec.model_id,
         name=spec.name,
         description=spec.description,
-        params=ModelParamsSpec(
-            datasets=list(spec.datasets),
-            lr_min=spec.lr_range[0],
-            lr_max=spec.lr_range[1],
-            lr_default=0.5,
-            epochs_max=spec.epochs_max,
-            epochs_default=500,
-        ),
+        params=[
+            ParamSpecResponse(
+                name=p.name,
+                kind=p.kind,
+                label=p.label,
+                default=p.default,
+                choices=list(p.choices),
+                minimum=p.minimum,
+                # The bound the form shows is the one the server will actually
+                # apply, which may be tighter than the spec's own if a HARD_LIMIT
+                # caps it.
+                maximum=effective_max(p),
+                max_items=p.max_items,
+                item_min=p.item_min,
+                item_max=p.item_max,
+                help=p.help,
+            )
+            for p in spec.params
+        ],
+        result_fields=[
+            ResultFieldResponse(key=r.key, label=r.label, format=r.format)
+            for r in spec.result_fields
+        ],
+        dataset_defaults=spec.dataset_defaults,
     )
 
 
@@ -109,7 +133,7 @@ def list_models(
 def run_model(
     request: Request,
     model_id: str,
-    body: TrainRequest,
+    body: dict[str, Any],
     current_user: Annotated[models.User, Depends(require_verified_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
@@ -132,18 +156,20 @@ def run_model(
     if spec is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown model")
 
-    # The schema bounds every value, but only the spec knows which datasets this
-    # particular model has. Validated here because the body can't see model_id.
-    if body.dataset not in spec.datasets:
+    # All parameter validation — types, per-model bounds, and the absolute
+    # cross-model ceiling — happens in one call against this model's descriptors.
+    # There is no request schema to keep in step: see services/params.py.
+    try:
+        params = validate(spec, body)
+    except ParamError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Unknown dataset '{body.dataset}'. Expected one of: {', '.join(spec.datasets)}",
-        )
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
 
     job = TrainingJob(
         user_id=current_user.id,
         model_id=spec.model_id,
-        params=body.model_dump(),
+        params=params,
         status=JobStatus.QUEUED.value,
     )
     db.add(job)

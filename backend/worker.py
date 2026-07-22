@@ -32,6 +32,7 @@ from backend.core.config import settings
 from backend.database import SessionLocal
 from backend.models.TrainingJob import JobStatus, TrainingJob, utcnow as _utcnow
 from backend.services import email_drain
+from backend.services.params import check_registry
 from backend.services.registry import get_model
 from backend.services.runner import run_training
 
@@ -187,6 +188,10 @@ def main() -> None:
     )
     signal.signal(signal.SIGINT, _handle_signal)
     signal.signal(signal.SIGTERM, _handle_signal)
+
+    # Same guard the API runs at import: a bad ModelSpec should stop the worker
+    # starting, not surface as a job that fails after the user waits for it.
+    check_registry()
 
     logger.info("worker started (poll=%ss, heartbeat=%ss, stale=%ss)",
                 settings.JOB_POLL_INTERVAL_SECONDS,

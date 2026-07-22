@@ -2,8 +2,9 @@
 #   --target web    -> App Runner: nginx (front) + uvicorn (127.0.0.1) + the SPA
 #                      in ONE container, so the backend has no public URL and the
 #                      client IP the rate limiter keys on cannot be forged.
-#   --target worker -> Fargate: python + the Step0 binary only; runs the claim
-#                      loop (training jobs + the email-outbox drain thread).
+#   --target worker -> Fargate: python + the training binaries only; runs the
+#                      claim loop (training jobs + the email-outbox drain thread).
+#                      Needs >= 1GB RAM — a Step1 MNIST run peaks near 500MB.
 # Build context is the REPO ROOT (needs backend/ AND frontend/ AND docker/):
 #   docker build --target web    -t ncplusplus-web .
 #   docker build --target worker -t ncplusplus-worker .
@@ -28,25 +29,34 @@ RUN python -m venv /opt/venv \
  && /opt/venv/bin/pip install --upgrade pip \
  && /opt/venv/bin/pip install -r requirements.lock.txt
 
-# ---- compile the Step0 training binary FOR LINUX (the worker shells out to it).
+# ---- compile the training binaries FOR LINUX (the worker shells out to them).
 # gcc:13 is bookworm-based, matching python:3.11-slim; -static-libstdc++/-libgcc
-# drop the C++ runtime deps so it runs on the slim image. Mirrors Step0/Makefile.
+# drop the C++ runtime deps so they run on the slim image. Mirrors each Makefile.
+# One stage per rung's compile, one line each — see ADDING_A_MODEL.md.
 FROM gcc:13-bookworm AS ccbuild
 WORKDIR /build
 COPY backend/services/Step0/ ./Step0/
 RUN cd Step0 && g++ -std=c++17 -O2 -Wall -Wextra -static-libstdc++ -static-libgcc -o nn main.cpp
+# Sources only: Step1 ships 53MB of MNIST idx files, and there is no reason to
+# drag them through the compiler stage (the runtime gets them from `COPY backend`).
+COPY backend/services/Step1/*.cpp backend/services/Step1/*.hpp ./Step1/
+RUN cd Step1 && g++ -std=c++17 -O2 -Wall -Wextra -static-libstdc++ -static-libgcc -o nn main.cpp
 
-# ---- common runtime base: venv + backend package + Linux Step0 binary, non-root
+# ---- common runtime base: venv + backend package + Linux training binaries, non-root
 FROM python:3.11-slim AS runtime-base
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PATH="/opt/venv/bin:$PATH"
 WORKDIR /app
 COPY --from=deps /opt/venv /opt/venv
+# Carries Step1's MNIST idx files (~53MB) as well as the Python package. The
+# `web` target doesn't need them but inherits this layer; accepted over splitting
+# the copy, since only the worker image is on a hot deploy path.
 COPY backend ./backend
-# Drop the freshly compiled Linux binary in over the source tree (the committed
-# macOS one is kept out of the build context by .dockerignore).
+# Drop the freshly compiled Linux binaries in over the source tree (the committed
+# macOS ones are kept out of the build context by .dockerignore).
 COPY --from=ccbuild /build/Step0/nn ./backend/services/Step0/nn
+COPY --from=ccbuild /build/Step1/nn ./backend/services/Step1/nn
 RUN adduser --disabled-password --gecos "" appuser && chown -R appuser /app
 
 # ---- worker: the claim loop (Fargate). No nginx, no SPA — stays lean.

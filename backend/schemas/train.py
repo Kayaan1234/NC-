@@ -1,49 +1,59 @@
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from uuid import UUID
 
 from datetime import datetime
 
 
-class TrainRequest(BaseModel):
-    """Parameters for one training run.
+# There is deliberately NO request schema for a training run. The parameters a
+# model accepts are per-model (Step0 takes four flags, Step1 takes eight), so the
+# router takes a raw dict and hands it to services/params.validate, which checks
+# it against that model's ParamSpec descriptors — and, crucially, against the
+# absolute HARD_LIMITS ceiling that lives there. A fixed pydantic model could
+# only express the intersection of every model's parameters.
 
-    The bounds here are a denial-of-service control, not input tidiness: every
-    accepted request spawns a real process, so `epochs: 1_000_000_000` would be a
-    free way to burn a worker. They are the absolute ceiling across all models —
-    Field needs literal values, and a model's own (possibly tighter) limits live
-    in its ModelSpec, which the router checks as well.
 
-    `dataset` is validated in the router rather than here: the valid set depends
-    on which model is being run, and the body can't see the model_id path param.
+class ParamSpecResponse(BaseModel):
+    """One parameter, as the UI needs to render an input for it.
+
+    Mirrors services/registry.ParamSpec field for field (minus `flag`, which is a
+    server-side detail the client has no use for). The form is generated from
+    this, so it cannot offer a value the server would reject.
     """
 
-    dataset: str = Field(min_length=1, max_length=50)
-    lr: float = Field(default=0.5, gt=0, le=10)
-    epochs: int = Field(default=500, ge=1, le=5000)
-    seed: int = Field(default=42, ge=0, le=2**32 - 1)
+    name: str
+    kind: str                       # "choice" | "float" | "int" | "int_list"
+    label: str
+    default: Any
+    choices: list[str] = []
+    minimum: float | None = None
+    maximum: float | None = None
+    max_items: int | None = None
+    item_min: int | None = None
+    item_max: int | None = None
+    help: str = ""
 
-    model_config = {"str_strip_whitespace": True}
 
+class ResultFieldResponse(BaseModel):
+    """One key of the run's RESULT line worth showing, and how to format it."""
 
-class ModelParamsSpec(BaseModel):
-    """The bounds the UI should render a parameter form from."""
-
-    datasets: list[str]
-    lr_min: float
-    lr_max: float
-    lr_default: float
-    epochs_max: int
-    epochs_default: int
+    key: str
+    label: str
+    format: str                     # "percent" | "number" | "text"
 
 
 class ModelSpecResponse(BaseModel):
     model_id: str
     name: str
     description: str
-    params: ModelParamsSpec
+    params: list[ParamSpecResponse]
+    result_fields: list[ResultFieldResponse]
+    # {dataset: {param_name: value}} — what the form should snap the other fields
+    # to when the dataset selection changes. Advisory: the server validates
+    # whatever finally arrives regardless.
+    dataset_defaults: dict[str, dict[str, Any]] = {}
 
     # Pydantic v2 reserves the `model_` prefix for its own attributes and warns
     # on any field that starts with it. `model_id` is our domain language and

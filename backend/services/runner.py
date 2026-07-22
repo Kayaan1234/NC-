@@ -30,6 +30,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from backend.core.config import settings
+from backend.services.params import format_value
 from backend.services.registry import ModelSpec
 
 # The binary's own contract (see services/Step0/main.cpp): the run ends with a
@@ -73,19 +74,23 @@ def _parse_result_line(stdout: str) -> dict[str, Any] | None:
 
 
 def build_argv(spec: ModelSpec, params: dict[str, Any]) -> list[str]:
-    """Assemble the command line for one run.
+    """Assemble the command line for one run by walking the spec's descriptors.
 
-    `params` must already be validated (schema bounds + spec.datasets) — this
-    function assumes its caller did that and only handles formatting. The binary
-    path comes from the spec, never from anything a request supplied.
+    There is no per-model code here: the flags, their order, and their formatting
+    all come from `spec.params` (see services/registry.py). `params` is the dict
+    services/params.validate produced when the job was queued — this function
+    assumes that validation happened and only handles formatting. The binary path
+    comes from the spec, never from anything a request supplied.
+
+    `.get(name, default)` rather than `[name]`: the row was written under whatever
+    spec was current when the job was queued, so a parameter added since then is
+    simply absent. Falling back to its default runs the job; a KeyError would fail
+    it for a reason the user had no part in.
     """
-    return [
-        str(spec.binary),
-        "--dataset", str(params["dataset"]),
-        "--lr", repr(float(params["lr"])),
-        "--epochs", str(int(params["epochs"])),
-        "--seed", str(int(params["seed"])),
-    ]
+    argv = [str(spec.binary)]
+    for p in spec.params:
+        argv += [p.flag, format_value(p, params.get(p.name, p.default))]
+    return argv
 
 
 def run_training(

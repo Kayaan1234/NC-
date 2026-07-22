@@ -1,19 +1,18 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, downloadFile } from '../api'
 import { useAuth } from '../auth'
-import { ACTIVE, message, type Job, type ModelSpec } from '../train'
+import { ACTIVE, message, summarise, type Job, type ModelSpec } from '../train'
 
 // The training menu: the intermediate page between Home and a model's config
 // form. It lists the models available to train (each links to its own page at
 // /training/:modelId) and shows the user's job history, which is cross-model
 // (one active slot per user), so it belongs on the hub rather than any one
 // model's page.
-
-function accuracy(job: Job): string {
-  const acc = job.result?.final_accuracy
-  return typeof acc === 'number' ? `accuracy ${(acc * 100).toFixed(1)}%` : ''
-}
+//
+// Job rows are rendered from the model's own result_fields (see train.ts), not
+// from any hardcoded key: a single neuron reports one accuracy, an MLP reports
+// train and test accuracy plus its topology, and neither is special-cased here.
 
 function ModelCard({ model }: { model: ModelSpec }) {
   return (
@@ -25,7 +24,7 @@ function ModelCard({ model }: { model: ModelSpec }) {
   )
 }
 
-function JobRow({ job }: { job: Job }) {
+function JobRow({ job, spec }: { job: Job; spec: ModelSpec | undefined }) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -45,12 +44,15 @@ function JobRow({ job }: { job: Job }) {
   }
 
   const dataset = typeof job.params.dataset === 'string' ? job.params.dataset : '?'
+  // Empty for a job whose model has since left the registry — the row still
+  // renders, and its report is still downloadable.
+  const summary = summarise(job, spec)
 
   return (
     <li>
       {job.model_id} / {dataset} — {job.status}
       {job.status === 'queued' && job.queue_position !== null && ` (position ${job.queue_position})`}
-      {accuracy(job) && ` — ${accuracy(job)}`}
+      {summary && ` — ${summary}`}
       {job.error && ` — ${job.error}`}
       {job.report_available && (
         <>
@@ -72,6 +74,10 @@ export default function Training() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [clearing, setClearing] = useState(false)
+
+  // Jobs are cross-model, so each row needs its own model's spec to know how to
+  // render the run's numbers.
+  const specs = useMemo(() => new Map(models.map((m) => [m.model_id, m])), [models])
 
   const loadJobs = useCallback(async () => {
     setJobs(await api<Job[]>('/train/jobs', { method: 'GET', auth: true }))
@@ -160,7 +166,7 @@ export default function Training() {
         <>
           <ul>
             {jobs.map((j) => (
-              <JobRow key={j.id} job={j} />
+              <JobRow key={j.id} job={j} spec={specs.get(j.model_id)} />
             ))}
           </ul>
           {/* Only offered when there's something clearable — an active job is
