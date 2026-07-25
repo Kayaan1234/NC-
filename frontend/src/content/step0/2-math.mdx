@@ -1,0 +1,87 @@
+{/* TODO: author real content. This is a PLACEHOLDER demonstrating the intended
+    rhythm for a source-file page: prose, then the function it describes, then more
+    prose, then the next function (function -> prose -> function -> prose ...).
+    Replace the prose and the code fences with the real logistic_regression.hpp
+    walkthrough. Code fences need no escaping — paste C++ verbatim between ```cpp
+    and ```. */}
+
+## math.hpp
+
+This file serves as the essential mathematical functions you take for granted when doing mathematical programming.
+Luckily C++ has some nice libraries we can use so we don't have to waste time with the nitty gritty of expandable data structures. 
+```#include<vector>``` will be a familiar sight among all model code. So without further ado, here are the imports.
+
+```cpp
+#pragma once 
+#include <cmath> // for maths stuff
+#include <vector> // expandable data container
+#include <stdexcept> // throwing exceptions
+
+```
+
+Lets look at the first mathematical function, which is the ```sigmoid()``` function. This is the chosen non-linearity for this
+most basic of neural computing architectures. Firstly focus on how we are using ```double```
+as the datatype. Important to keep this consistent, across all files here. ```double``` has size of 8 bytes. 
+Sigmoid (σ(x)) has some key properties. Firstly, the output is always between 0 and 1. Secondly, and more importantly, its derivative
+is σ(x)(1-σ(x)). This means when doing a backward pass, we don't need to freshly compute the derivative, we can just use the value from the forward pass.
+Another (concerning) property, is that the maximum value of the derivative is 0.25 (when σ(x) == 0.5). When you stack many neurons sequentially, 
+the gradient with respect to the first neurons will be extremely small, and the model struggles to learn, but thats a problem for another time.
+
+If you are already mathematically inclined, here is the function in a nice form, and a nice diagram for good measure.
+
+#latex sigmoid
+#diagram of sigmoid
+
+
+
+
+
+```cpp
+inline double sigmoid(double x){
+    return (1.0/(1.0+std::exp(-x)));
+}
+
+```
+
+The code above is **not** numerically, stable. As x becomes more and more negative, the return value tends to infinity. 
+To address this, we can branch on the value of the passed parameter.
+
+```cpp
+inline double stable_sigmoid(double x) {
+    if (x >= 0.0) {
+        return 1.0 / (1.0 + std::exp(-x));
+    } else {
+        double exp_x = std::exp(x);
+        return exp_x / (1.0 + exp_x);
+    }
+}
+```
+
+Lets next move on to the dot product, which is the function that allows us to multiply the weights by the input values. Its pretty simple. 
+First notice we pass in the parameters as const references. We dont change the vectors we are taking the dot product of, so this makes sense and it cheaper. We dont need to take copies
+of the vectors. Next notice how we throw an error if the vectors don't have the same size. Otherwise the process is pretty simple, the code is pretty self explanatory.
+
+Here is the math function 
+
+#math function of dot product
+#Here is the python
+
+```python
+
+import numpy as np
+
+np.dot(a, b, out=None)
+```
+
+```inline double dot(const std::vector<double>& a, const std::vector<double>& b){
+    if (a.size() != b.size()){
+        
+        throw std::invalid_argument("Vectors must have same size");
+        
+    }
+    double total = 0.0;
+    for (std::size_t i = 0; i < a.size(); ++i){
+        total += a[i] * b[i];
+    }
+    return total;
+}```

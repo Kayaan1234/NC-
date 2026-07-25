@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import mdx from '@mdx-js/rollup'
 
 // Single-origin dev: the SPA is served from :5173 and calls the API with
 // relative paths, with Vite forwarding the backend's route prefixes to uvicorn.
@@ -14,7 +15,13 @@ import react from '@vitejs/plugin-react'
 const BACKEND = process.env.VITE_DEV_BACKEND ?? 'http://127.0.0.1:8000'
 
 export default defineConfig({
-  plugins: [react()],
+  // MDX powers the authored "learn" pages (src/content/**/*.mdx). The plugin must
+  // run before @vitejs/plugin-react, and react() is told to also transform .mdx so
+  // Fast Refresh works on the compiled pages.
+  plugins: [
+    { enforce: 'pre', ...mdx() },
+    react({ include: /\.(jsx|js|mdx|md|tsx|ts)$/ }),
+  ],
   server: {
     port: 5173,
     strictPort: true,

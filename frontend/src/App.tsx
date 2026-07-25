@@ -6,6 +6,7 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import Training from './pages/Training'
 import TrainingModel from './pages/TrainingModel'
+import Learn from './pages/Learn'
 import ForgotPassword from './pages/ForgotPassword'
 import PasswordReset from './pages/PasswordReset'
 import VerifyEmail from './pages/VerifyEmail'
@@ -67,6 +68,27 @@ export default function App() {
         element={
           <RequireAuth>
             <TrainingModel />
+          </RequireAuth>
+        }
+      />
+      {/* "Read about the model" flow that precedes training for models with
+          authored content. Logged-in gate only (deliberately NOT verified-email):
+          reading is static, makes no /train call, and motivates verifying. Same
+          /training prefix as above so it isn't proxied to the backend. The bare
+          path renders the first section; :slug renders a specific one. */}
+      <Route
+        path="/training/:modelId/learn"
+        element={
+          <RequireAuth>
+            <Learn />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/training/:modelId/learn/:slug"
+        element={
+          <RequireAuth>
+            <Learn />
           </RequireAuth>
         }
       />

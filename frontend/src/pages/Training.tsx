@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, downloadFile } from '../api'
 import { useAuth } from '../auth'
+import { hasContent } from '../content'
 import { ACTIVE, message, summarise, type Job, type ModelSpec } from '../train'
 
 // The training menu: the intermediate page between Home and a model's config
@@ -15,9 +16,15 @@ import { ACTIVE, message, summarise, type Job, type ModelSpec } from '../train'
 // train and test accuracy plus its topology, and neither is special-cased here.
 
 function ModelCard({ model }: { model: ModelSpec }) {
+  // Models with an authored explanation open the learn flow first; models without
+  // one link straight to training, as before. A model gains its learn flow the
+  // moment its content is registered in content/index.ts — nothing here changes.
+  const to = hasContent(model.model_id)
+    ? `/training/${model.model_id}/learn`
+    : `/training/${model.model_id}`
   return (
     <li>
-      <Link to={`/training/${model.model_id}`}>{model.name}</Link>
+      <Link to={to}>{model.name}</Link>
       <br />
       <small>{model.description}</small>
     </li>

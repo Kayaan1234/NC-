@@ -1,0 +1,16 @@
+
+
+# Overview
+
+**Diagram: Simple model of a single neuron, 4 inputs, one output**
+
+This is the most simple concept to build, and one that you should visualise when building more complex models. 
+A forward pass of a neuron takes a weighted sum of the inputs, applies a bias term and then a nonlinearity. 
+A non-linearity may seem unnecessary at this point, but when we get to building more complex models, 
+you will see it is the defining characteristic of neural computing. Without a nonlinearity, 
+a large multi-layered neural network can be simplified to a single neuron, as a linear combination of 
+linear functions also results in a linear function. The backward pass involves calculating a loss function, 
+in this case binary loss. Since the loss is a function of the weights and biases, we can use our calculus skills 
+to minimise the loss by taking partial derivatives (the loss with respect to each of the weights and the bias), 
+and then adjusting these values by "surfing" down the gradient.
+
