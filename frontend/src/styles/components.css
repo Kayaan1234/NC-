@@ -1,0 +1,281 @@
+/* Cards, messages, job rows, status dots, figures. */
+
+.card {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-5);
+}
+
+.card + .card {
+  margin-top: var(--space-4);
+}
+
+/* Irreversible actions. A single red edge, not a red card — the section is
+ * something you scroll past far more often than you use. */
+.card--danger {
+  border-left: 2px solid var(--err);
+}
+
+.card__title {
+  margin-bottom: var(--space-4);
+}
+
+/* Standing explanatory text inside a card — a consent line, a consequence of
+ * submitting, a rate limit. Not a message: it's always there and needs no
+ * severity, so it stays quiet. */
+.card__note {
+  margin-top: var(--space-4);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--text-faint);
+}
+
+.card__note a {
+  color: var(--text-dim);
+}
+
+/* Aligned key/value list — account details, model metadata. The mono column keeps
+ * the values on a common left edge, which is the whole point of using mono here. */
+.kv {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-2) var(--space-5);
+  font-size: 0.8125rem;
+}
+
+.kv dt {
+  color: var(--text-faint);
+}
+
+.kv dd {
+  margin: 0;
+  color: var(--text);
+  word-break: break-word;
+}
+
+/* ---- Messages -------------------------------------------------------------- */
+
+/* Errors and successes rendered identically before this: both were a bare <p>.
+ * The left rule carries the severity; the text stays near-neutral so a validation
+ * message never becomes the loudest thing on the page. */
+.msg {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-left: 3px solid var(--border-strong);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--bg-raised);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--text);
+  margin: var(--space-4) 0;
+}
+
+.msg__body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.msg__body > * + * {
+  margin-top: var(--space-3);
+}
+
+/* A message that carries its own control, e.g. "resend verification email". */
+.msg__actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.msg--error {
+  border-left-color: var(--err);
+  background: var(--err-bg);
+}
+
+.msg--ok {
+  border-left-color: var(--ok);
+  background: var(--ok-bg);
+}
+
+.msg--info {
+  border-left-color: var(--border-strong);
+  background: var(--bg-raised);
+}
+
+/* ---- Status ---------------------------------------------------------------- */
+
+/* A square, not a circle: on a terminal-styled surface a filled block reads as a
+ * cell, and it stays crisp at 6px where a circle goes fuzzy. */
+.status {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+
+.status::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  flex: none;
+  background: currentColor;
+  /* baseline alignment on a pseudo-element is unreliable; nudge it onto the
+   * text's optical centre instead. */
+  transform: translateY(-1px);
+}
+
+.status--succeeded {
+  color: var(--ok);
+}
+.status--running {
+  color: var(--warn);
+}
+.status--failed {
+  color: var(--err);
+}
+.status--queued,
+.status--unknown {
+  color: var(--text-faint);
+}
+
+.status__note {
+  color: var(--text-faint);
+}
+
+/* ---- Job rows -------------------------------------------------------------- */
+
+.job-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.job {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-3) var(--space-4);
+}
+
+.job__row {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, auto) minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--space-3) var(--space-5);
+  font-size: 0.8125rem;
+}
+
+.job__name {
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.job__meta {
+  color: var(--text-dim);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.job__action {
+  justify-self: end;
+}
+
+.job .msg {
+  margin: var(--space-3) 0 0;
+}
+
+/* Below 640px the four columns become two stacked lines: identity + status, then
+ * metrics, then the action. Ellipsising the metrics instead would hide the
+ * numbers, which are the only reason the row exists. */
+@media (max-width: 640px) {
+  .job__row {
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  }
+
+  .job__meta {
+    grid-column: 1 / -1;
+  }
+
+  .job__action {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}
+
+/* An empty collection. Stated plainly and quietly: nothing is wrong, there is
+ * just nothing here yet. */
+.empty {
+  color: var(--text-faint);
+  font-size: 0.8125rem;
+  padding: var(--space-4) 0;
+}
+
+/* ---- Model cards ----------------------------------------------------------- */
+
+.model-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.model {
+  display: block;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+  text-decoration: none;
+  transition: border-color var(--t), background-color var(--t);
+}
+
+.model:hover {
+  border-color: var(--border-strong);
+  text-decoration: none;
+}
+
+.model__name {
+  color: var(--text);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  margin-bottom: var(--space-2);
+}
+
+.model__desc {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
+/* ---- Figures --------------------------------------------------------------- */
+
+/* Textbook plates: the diagram sits on the page background, not in a card, and
+ * the caption is a numbered mono line beneath it. No frame, no tint — the figure
+ * is line art on the same surface as the prose, the way a maths text prints it. */
+.figure {
+  margin: var(--space-7) 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--text);
+}
+
+.figure svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.figure figcaption {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  text-align: center;
+  max-width: 52ch;
+  line-height: 1.6;
+}
+
+.figure figcaption b {
+  color: var(--text-faint);
+  font-weight: 500;
+}

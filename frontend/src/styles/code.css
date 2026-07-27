@@ -1,0 +1,58 @@
+/* Chrome around Shiki's output.
+ *
+ * Shiki runs at build time and emits <pre class="shiki" style="background-color:…">
+ * with inline per-token colours. The token colours come from src/styles/shiki-theme.ts;
+ * everything structural — the frame, padding, scroll behaviour — is here, and the
+ * inline background it writes is overridden so a code block matches every other
+ * raised surface in the app. */
+
+.prose pre.shiki,
+.prose pre {
+  background: var(--bg-raised) !important;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+  margin: var(--space-5) 0;
+  /* Code is the one thing that must never reflow to fit: it scrolls. */
+  overflow-x: auto;
+  font-size: 0.8125rem;
+  line-height: 1.7;
+  tab-size: 4;
+}
+
+.prose pre code {
+  font-family: var(--font-mono);
+  /* Ligatures OFF, and not as a matter of taste. JetBrains Mono renders `>=` as
+   * a single ≥ glyph, `!=` as ≠, `->` as an arrow. On a page teaching someone to
+   * write C++, showing them characters that are not in the source is a bug: they
+   * have to type `>=`. Same reason inline code below turns them off. */
+  font-variant-ligatures: none;
+  font-feature-settings: 'liga' 0, 'calt' 0;
+  display: block;
+  width: fit-content;
+  min-width: 100%;
+  background: none;
+  border: 0;
+  padding: 0;
+  white-space: pre;
+  color: inherit;
+}
+
+/* Scoped to code blocks: a thin, low-contrast scrollbar so a horizontally
+ * scrollable block hints at its overflow without drawing a bar across the page. */
+.prose pre::-webkit-scrollbar {
+  height: 8px;
+}
+
+.prose pre::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.prose pre::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+.prose pre:hover::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+}

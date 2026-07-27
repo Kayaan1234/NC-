@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { api, downloadFile } from '../api'
 import { useAuth } from '../auth'
 import { hasContent } from '../content'
+import Message from '../components/Message'
+import VerifyNotice from '../components/VerifyNotice'
 import { ACTIVE, message, summarise, type Job, type ModelSpec } from '../train'
 
 // The training menu: the intermediate page between Home and a model's config
@@ -15,6 +17,10 @@ import { ACTIVE, message, summarise, type Job, type ModelSpec } from '../train'
 // from any hardcoded key: a single neuron reports one accuracy, an MLP reports
 // train and test accuracy plus its topology, and neither is special-cased here.
 
+// The four states the backend emits. Anything else still renders — with the
+// neutral grey treatment — rather than dropping the row.
+const KNOWN_STATUSES = new Set(['queued', 'running', 'succeeded', 'failed'])
+
 function ModelCard({ model }: { model: ModelSpec }) {
   // Models with an authored explanation open the learn flow first; models without
   // one link straight to training, as before. A model gains its learn flow the
@@ -24,9 +30,10 @@ function ModelCard({ model }: { model: ModelSpec }) {
     : `/training/${model.model_id}`
   return (
     <li>
-      <Link to={to}>{model.name}</Link>
-      <br />
-      <small>{model.description}</small>
+      <Link to={to} className="model">
+        <div className="model__name">{model.name}</div>
+        <div className="model__desc">{model.description}</div>
+      </Link>
     </li>
   )
 }
@@ -54,22 +61,38 @@ function JobRow({ job, spec }: { job: Job; spec: ModelSpec | undefined }) {
   // Empty for a job whose model has since left the registry — the row still
   // renders, and its report is still downloadable.
   const summary = summarise(job, spec)
+  const statusClass = KNOWN_STATUSES.has(job.status) ? job.status : 'unknown'
 
+  // A row, not a sentence. The old version ran identity, status, metrics and the
+  // error together into one em-dash-separated line, so scanning a list of jobs
+  // meant reading each one. Aligned columns mean the status column can be read
+  // straight down. There is deliberately no progress indicator for `running`:
+  // the API carries no epoch or percentage, only the status itself.
   return (
-    <li>
-      {job.model_id} / {dataset} — {job.status}
-      {job.status === 'queued' && job.queue_position !== null && ` (position ${job.queue_position})`}
-      {summary && ` — ${summary}`}
-      {job.error && ` — ${job.error}`}
-      {job.report_available && (
-        <>
-          {' '}
-          <button type="button" onClick={onDownload} disabled={busy}>
-            {busy ? 'Downloading...' : 'Download report'}
-          </button>
-        </>
-      )}
-      {error && <span> {error}</span>}
+    <li className="job">
+      <div className="job__row">
+        <span className="job__name">
+          {job.model_id} / {dataset}
+        </span>
+        <span className={`status status--${statusClass}`}>
+          {job.status}
+          {job.status === 'queued' && job.queue_position !== null && (
+            <span className="status__note"> position {job.queue_position}</span>
+          )}
+        </span>
+        <span className="job__meta">{summary}</span>
+        <span className="job__action">
+          {job.report_available && (
+            <button type="button" className="btn-quiet" onClick={onDownload} disabled={busy}>
+              {busy ? 'Downloading...' : 'report'}
+            </button>
+          )}
+        </span>
+      </div>
+      {/* A failure reason is a paragraph, not a table cell — it gets its own line
+          rather than being appended to the row and stretching the grid. */}
+      {job.error && <Message kind="error">{job.error}</Message>}
+      {error && <Message kind="error">{error}</Message>}
     </li>
   )
 }
@@ -136,58 +159,54 @@ export default function Training() {
 
   if (!user) return null
 
-  if (!user.verified) {
-    return (
-      <div>
-        <h1>Training</h1>
-        <p>Verify your email to run training jobs.</p>
-        <p>
-          <Link to="/">Home</Link>
-        </p>
-      </div>
-    )
-  }
+  if (!user.verified) return <VerifyNotice />
 
   return (
-    <div>
-      <h1>Training</h1>
-      {loading && <p>Loading...</p>}
-      {error && <p>{error}</p>}
+    <div className="container-app">
+      <div className="page-header">
+        <h1>Training</h1>
+        <p>Pick a model to read about and run. One job at a time.</p>
+      </div>
 
-      <h2>Models</h2>
-      {!loading && models.length === 0 ? (
-        <p>No models are available to train yet.</p>
-      ) : (
-        <ul>
-          {models.map((m) => (
-            <ModelCard key={m.model_id} model={m} />
-          ))}
-        </ul>
-      )}
+      {loading && <p className="page-status">Loading...</p>}
+      {error && <Message kind="error">{error}</Message>}
 
-      <hr />
-      <h2>Your jobs</h2>
-      {jobs.length === 0 ? (
-        <p>No jobs yet.</p>
-      ) : (
-        <>
-          <ul>
-            {jobs.map((j) => (
-              <JobRow key={j.id} job={j} spec={specs.get(j.model_id)} />
+      <div className="section">
+        <h2 className="section__title">Models</h2>
+        {!loading && models.length === 0 ? (
+          <p className="empty">No models are available to train yet.</p>
+        ) : (
+          <ul className="model-list">
+            {models.map((m) => (
+              <ModelCard key={m.model_id} model={m} />
             ))}
           </ul>
-          {/* Only offered when there's something clearable — an active job is
-              never deleted, so a list of only queued/running jobs shows no button. */}
-          {jobs.some((j) => !ACTIVE.has(j.status)) && (
-            <button type="button" onClick={clearFinished} disabled={clearing}>
-              {clearing ? 'Clearing...' : 'Clear finished jobs'}
-            </button>
-          )}
-        </>
-      )}
-      <p>
-        <Link to="/">Home</Link>
-      </p>
+        )}
+      </div>
+
+      <div className="section">
+        <h2 className="section__title">Your jobs</h2>
+        {jobs.length === 0 ? (
+          <p className="empty">No jobs yet.</p>
+        ) : (
+          <>
+            <ul className="job-list">
+              {jobs.map((j) => (
+                <JobRow key={j.id} job={j} spec={specs.get(j.model_id)} />
+              ))}
+            </ul>
+            {/* Only offered when there's something clearable — an active job is
+                never deleted, so a list of only queued/running jobs shows no button. */}
+            {jobs.some((j) => !ACTIVE.has(j.status)) && (
+              <div className="form-actions">
+                <button type="button" className="btn-quiet" onClick={clearFinished} disabled={clearing}>
+                  {clearing ? 'Clearing...' : 'Clear finished jobs'}
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   )
 }

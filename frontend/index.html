@@ -3,6 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <!-- Inline, and ahead of the bundled stylesheet: with no background on the raw
+         document the browser paints white for the frame or two before the CSS
+         asset arrives, which on a dark app is a flash straight into the eye. -->
+    <style>
+      html {
+        background: #16181a;
+      }
+    </style>
     <title>NC++</title>
   </head>
   <body>

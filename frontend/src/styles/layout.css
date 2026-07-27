@@ -1,0 +1,354 @@
+/* The shell and the page containers.
+ *
+ * <main> is deliberately bare and full-width: each page picks its own container
+ * class. That keeps Layout.tsx free of useLocation() route-sniffing, and lets the
+ * learn rail's border run the full height of the viewport without negative
+ * margins fighting a max-width it never wanted. */
+
+.shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Sticky, because the learn rail offsets itself by --h-topbar. A bar that scrolls
+ * away would leave a gap above the rail on every scroll. */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  height: var(--h-topbar);
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding: 0 var(--space-5);
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--border);
+}
+
+.topbar__brand {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  margin-right: auto;
+}
+
+.topbar__brand:hover {
+  text-decoration: none;
+}
+
+.topbar__nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  font-size: 0.8125rem;
+}
+
+.topbar__nav a,
+.topbar__link {
+  color: var(--text-dim);
+  text-decoration: none;
+  transition: color var(--t);
+}
+
+.topbar__nav a:hover,
+.topbar__link:hover {
+  color: var(--text);
+  text-decoration: none;
+}
+
+/* Log out is a button for semantics but must read as a nav link, not a control. */
+.topbar__link {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+main {
+  flex: 1 1 auto;
+  /* No max-width here on purpose — see the note at the top of this file. */
+  width: 100%;
+}
+
+/* Page containers. A page picks exactly one. */
+.container-app {
+  max-width: var(--w-app);
+  margin: 0 auto;
+  padding: var(--space-7) var(--space-5) var(--space-8);
+}
+
+.container-prose {
+  max-width: var(--w-prose);
+  margin: 0 auto;
+  padding: var(--space-7) var(--space-5) var(--space-8);
+}
+
+/* Auth pages: a narrow card, sat high rather than dead-centre — vertically
+ * centring a short form leaves it floating with no relationship to the top bar. */
+.container-form {
+  max-width: var(--w-form);
+  margin: 0 auto;
+  padding: var(--space-8) var(--space-5);
+}
+
+/* Cross-links beneath an auth card. Spaced rather than pipe-separated — the old
+ * "Register | Forgot password" reads as one string of text at a glance. */
+.auth-links {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-5);
+  margin-top: var(--space-4);
+  font-size: 0.8125rem;
+}
+
+.auth-links a {
+  color: var(--text-dim);
+  text-decoration: none;
+  transition: color var(--t);
+}
+
+.auth-links a:hover {
+  color: var(--text);
+  text-decoration: none;
+}
+
+/* "← All models" above a page that is one level down. Contextual navigation
+ * within a flow, which is why it survived the move of everything else into the
+ * top bar. */
+.backlink {
+  font-size: 0.8125rem;
+  margin-bottom: var(--space-5);
+}
+
+.backlink a {
+  color: var(--text-dim);
+  text-decoration: none;
+  transition: color var(--t);
+}
+
+.backlink a:hover {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.page-header {
+  margin-bottom: var(--space-6);
+}
+
+.page-header p {
+  color: var(--text-dim);
+  margin-top: var(--space-2);
+}
+
+/* Section heading inside a page, replacing the old <hr /> separators. */
+.section {
+  margin-top: var(--space-7);
+}
+
+.section__title {
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 500;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--space-4);
+}
+
+/* Route-gate and in-flight states (RequireAuth, PublicOnly, token checks).
+ * Wrapped so they don't flash as unstyled full-page text before the app
+ * decides where you belong. */
+.page-status {
+  padding: var(--space-8) var(--space-5);
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 0.8125rem;
+}
+
+.footer {
+  flex: none;
+  padding: var(--space-5);
+  border-top: 1px solid var(--border);
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--text-faint);
+}
+
+.footer a {
+  color: var(--text-faint);
+  text-decoration-color: var(--border);
+}
+
+.footer a:hover {
+  color: var(--text-dim);
+  text-decoration-color: var(--text-dim);
+}
+
+/* ---- Learn: persistent left rail ------------------------------------------ */
+
+.learn-grid {
+  display: grid;
+  grid-template-columns: var(--w-rail) minmax(0, 1fr);
+  align-items: start;
+}
+
+.learn-rail {
+  position: sticky;
+  top: var(--h-topbar);
+  /* Fills the viewport below the bar so the right border is a continuous rule
+   * rather than stopping at the end of the link list. */
+  height: calc(100vh - var(--h-topbar));
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  padding: var(--space-5) var(--space-4);
+  font-size: 0.8125rem;
+}
+
+.learn-rail__back {
+  display: block;
+  color: var(--text-faint);
+  text-decoration: none;
+  margin-bottom: var(--space-5);
+  transition: color var(--t);
+}
+
+.learn-rail__back:hover {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.learn-rail__model {
+  color: var(--text);
+  font-weight: 500;
+  margin-bottom: var(--space-1);
+}
+
+.learn-rail__count {
+  color: var(--text-faint);
+  font-size: 0.75rem;
+  margin-bottom: var(--space-4);
+}
+
+.learn-rail__list {
+  display: flex;
+  flex-direction: column;
+}
+
+.learn-rail__item {
+  /* The left rule is the active marker; transparent keeps every item on the same
+   * baseline so the list doesn't shift as you page through it. */
+  border-left: 2px solid transparent;
+  padding: var(--space-2) var(--space-3);
+  color: var(--text-dim);
+  text-decoration: none;
+  transition: color var(--t), border-color var(--t);
+}
+
+a.learn-rail__item:hover {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.learn-rail__item--current {
+  border-left-color: var(--text);
+  color: var(--text);
+}
+
+.learn-rail__foot {
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.learn-rail__foot a {
+  color: var(--text-dim);
+  text-decoration: none;
+  transition: color var(--t);
+}
+
+.learn-rail__foot a:hover {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.learn-body {
+  min-width: 0;
+  padding: var(--space-7) var(--space-6) var(--space-8);
+}
+
+.learn-body > * {
+  max-width: var(--w-prose);
+  margin-inline: auto;
+}
+
+.learn-nav {
+  max-width: var(--w-prose);
+  margin: var(--space-8) auto 0;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  font-size: 0.8125rem;
+}
+
+.learn-nav a {
+  color: var(--text-dim);
+  text-decoration: none;
+  transition: color var(--t);
+}
+
+.learn-nav a:hover {
+  color: var(--text);
+  text-decoration: none;
+}
+
+/* Below 900px the rail becomes an inline strip above the body: a 15rem sidebar
+ * plus a reading measure does not fit, and a hamburger for a two-item list would
+ * be more machinery than the content justifies. */
+@media (max-width: 900px) {
+  .learn-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .learn-rail {
+    position: static;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .learn-rail__list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+  }
+
+  .learn-rail__item {
+    border-left: 0;
+    border-bottom: 2px solid transparent;
+    padding: var(--space-2) var(--space-2);
+  }
+
+  .learn-rail__item--current {
+    border-left-color: transparent;
+    border-bottom-color: var(--text);
+  }
+
+  .learn-rail__foot {
+    flex-direction: row;
+    gap: var(--space-5);
+  }
+
+  .learn-body {
+    padding: var(--space-6) var(--space-4) var(--space-8);
+  }
+}

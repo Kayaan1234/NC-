@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <title>NC++</title>
+  <!-- Two inputs converging on one node: the single neuron the whole course
+       starts from. Drawn heavy because it has to survive being scaled to 16px in
+       a browser tab, where hairlines disappear. -->
+  <rect width="32" height="32" rx="6" fill="#16181a" />
+  <path d="M9 10L23 16M9 22L23 16" stroke="#9aa0a6" stroke-width="2" fill="none" />
+  <circle cx="9" cy="10" r="3" fill="#e4e6e8" />
+  <circle cx="9" cy="22" r="3" fill="#e4e6e8" />
+  <circle cx="23" cy="16" r="4.5" fill="#16181a" stroke="#e4e6e8" stroke-width="2.5" />
+</svg>

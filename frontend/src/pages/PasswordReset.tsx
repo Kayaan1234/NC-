@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
+import Message from '../components/Message'
+import { message as toMessage } from '../train'
 
 export default function PasswordReset() {
   const [params] = useSearchParams()
@@ -24,7 +26,7 @@ export default function PasswordReset() {
       try {
         await api<{ message: string }>('/auth/reset-password/validate', { body: { token } })
       } catch (err) {
-        setTokenError(err instanceof Error ? err.message : 'Invalid or expired password reset link')
+        setTokenError(toMessage(err, 'Invalid or expired password reset link'))
       } finally {
         setChecking(false)
       }
@@ -41,43 +43,50 @@ export default function PasswordReset() {
       })
       setMessage(res.message)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Reset failed')
+      setError(toMessage(err, 'Reset failed'))
     } finally {
       setBusy(false)
     }
   }
 
-  if (checking) return <p>Checking link...</p>
+  if (checking) return <p className="page-status">Checking link...</p>
 
   return (
-    <div>
-      <h1>Reset password</h1>
-      {tokenError && <p>{tokenError}</p>}
-      {!tokenError && message && <p>{message}</p>}
-      {!tokenError && !message && (
-        <form onSubmit={onSubmit}>
-          <div>
-            <label htmlFor="new-password">New password</label>
-            <br />
-            <input
-              id="new-password"
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              minLength={8}
-              maxLength={30}
-              required
-            />
-            <br />
-            <small>8-30 characters, at least one uppercase letter and one digit.</small>
-          </div>
-          <button type="submit" disabled={busy}>
-            {busy ? 'Resetting...' : 'Reset password'}
-          </button>
-        </form>
-      )}
-      {error && <p>{error}</p>}
-      <p>
+    <div className="container-form">
+      <div className="card">
+        <h1 className="card__title">Reset password</h1>
+        {tokenError && <Message kind="error">{tokenError}</Message>}
+        {!tokenError && message && <Message kind="ok">{message}</Message>}
+        {!tokenError && !message && (
+          <>
+            <form onSubmit={onSubmit}>
+              <div className="field">
+                <label htmlFor="new-password">New password</label>
+                <input
+                  id="new-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  minLength={8}
+                  maxLength={30}
+                  required
+                />
+                <small className="field__hint">
+                  8-30 characters, at least one uppercase letter and one digit.
+                </small>
+              </div>
+              <div className="form-actions">
+                <button type="submit" className="btn-primary" disabled={busy}>
+                  {busy ? 'Resetting...' : 'Reset password'}
+                </button>
+              </div>
+            </form>
+            {error && <Message kind="error">{error}</Message>}
+          </>
+        )}
+      </div>
+      <p className="auth-links">
         <Link to="/login">Log in</Link>
       </p>
     </div>
