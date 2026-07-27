@@ -1,0 +1,169 @@
+/* Forms.
+ *
+ * Every form in this app was written as <label> <br /> <input>. The <br />s are
+ * gone; .field carries the layout instead, so a hint can be a block element and
+ * the label/control gap is one number in one place. */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.field label {
+  font-size: 0.8125rem;
+  color: var(--text-dim);
+}
+
+.field__hint {
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  line-height: 1.5;
+}
+
+input[type='text'],
+input[type='email'],
+input[type='password'],
+input[type='number'],
+select {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-inset);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: border-color var(--t);
+}
+
+input:hover:not(:disabled),
+select:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+input:disabled,
+select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+input::placeholder {
+  color: var(--text-faint);
+}
+
+/* Native select arrow replaced with a drawn caret so the control matches the
+ * inputs. The SVG is inline (a data URI) — nothing in this app fetches
+ * off-origin, including for a 12px chevron. */
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%239aa0a6' stroke-width='1.2'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--space-3) center;
+  padding-right: var(--space-6);
+}
+
+button {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  padding: var(--space-2) var(--space-4);
+  background: var(--bg-raised);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background-color var(--t), border-color var(--t), color var(--t);
+}
+
+button:hover:not(:disabled) {
+  background: var(--border);
+  border-color: var(--text-faint);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* The one primary action on a page (Log in, Run training). Filled rather than
+ * coloured — there is no accent hue to fill it with. */
+.btn-primary {
+  background: var(--text);
+  color: var(--bg);
+  border-color: var(--text);
+  font-weight: 500;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #fff;
+  border-color: #fff;
+  color: var(--bg);
+}
+
+/* Destructive. Outlined at rest so it never competes for attention on a page it
+ * shares with two ordinary forms, and only commits to the colour on hover. */
+.btn-danger {
+  background: transparent;
+  color: var(--err);
+  border-color: var(--err);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--err);
+  border-color: var(--err);
+  color: var(--bg);
+}
+
+/* A quiet control that sits inside a row of data, e.g. a job's report download. */
+.btn-quiet {
+  padding: var(--space-1) var(--space-3);
+  font-size: 0.75rem;
+  background: transparent;
+  color: var(--text-dim);
+  border-color: var(--border);
+}
+
+.btn-quiet:hover:not(:disabled) {
+  background: var(--bg-raised);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-top: var(--space-5);
+}
+
+/* The generated model-params form. Above 640px labels and controls align in two
+ * columns so a screen of numeric settings reads as a settings panel rather than a
+ * tall stack of loose pairs. */
+@media (min-width: 640px) {
+  .form-grid .field {
+    display: grid;
+    grid-template-columns: 11rem minmax(0, 1fr);
+    column-gap: var(--space-4);
+    row-gap: var(--space-1);
+    align-items: baseline;
+  }
+
+  .form-grid .field label {
+    text-align: right;
+  }
+
+  .form-grid .field__hint {
+    grid-column: 2;
+  }
+
+  /* Everything that isn't a field still lines up with the control column, so the
+   * submit button and the note sit under the inputs rather than under the labels. */
+  .form-grid > .form-actions,
+  .form-grid > .card__note,
+  .form-grid > .msg {
+    margin-left: calc(11rem + var(--space-4));
+  }
+}

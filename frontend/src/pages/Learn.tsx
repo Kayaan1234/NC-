@@ -12,6 +12,10 @@ import { getModelContent } from '../content'
 // reading is what motivates verifying, and nothing here calls a /train endpoint. The
 // "skip to training" links point at /training/:modelId, which enforces verification
 // itself at the point of actually running a job.
+//
+// Layout is a two-column grid: a sticky rail carrying the section list, and the
+// reading column. The rail is an IDE's file tree — you're reading a model's source
+// files in order, and the current one should stay visible while you scroll.
 
 export default function Learn() {
   const { modelId, slug } = useParams()
@@ -33,45 +37,63 @@ export default function Learn() {
   const learn = (s: string) => `/training/${modelId}/learn/${s}`
 
   return (
-    <div>
-      <p>
-        <Link to="/training">← All models</Link>
-      </p>
-      <p>
-        {content.name} — {section.title} ({index + 1} of {sections.length})
-      </p>
+    <div className="learn-grid">
+      <nav className="learn-rail" aria-label="Sections">
+        <Link to="/training" className="learn-rail__back">
+          &larr; All models
+        </Link>
+        <div className="learn-rail__model">{content.name}</div>
+        <div className="learn-rail__count">
+          {index + 1} of {sections.length}
+        </div>
 
-      {/* Table of contents: jump directly to any section. */}
-      <ul>
-        {sections.map((s, i) => (
-          <li key={s.slug}>
-            {i === index ? s.title : <Link to={learn(s.slug)}>{s.title}</Link>}
-          </li>
-        ))}
-      </ul>
+        {/* Table of contents: jump directly to any section. The current one is
+            plain text rather than a link to itself, and carries the left rule. */}
+        <div className="learn-rail__list">
+          {sections.map((s, i) =>
+            i === index ? (
+              <span
+                key={s.slug}
+                className="learn-rail__item learn-rail__item--current"
+                aria-current="page"
+              >
+                {s.title}
+              </span>
+            ) : (
+              <Link key={s.slug} to={learn(s.slug)} className="learn-rail__item">
+                {s.title}
+              </Link>
+            ),
+          )}
+        </div>
 
-      {/* The authored page: prose + fenced code, rendered as plain HTML by MDX. */}
-      <Body />
+        <div className="learn-rail__foot">
+          <Link to={`/training/${modelId}`}>Start training &rarr;</Link>
+        </div>
+      </nav>
 
-      {/* On the last section, "Next" becomes the call to actually train. */}
-      <p>
-        {prev && (
-          <>
-            <Link to={learn(prev.slug)}>← Previous</Link>{' '}
-          </>
-        )}
-        {next ? (
-          <Link to={learn(next.slug)}>Next →</Link>
-        ) : (
-          <Link to={`/training/${modelId}`}>Start training →</Link>
-        )}
-      </p>
-      <p>
-        <Link to={`/training/${modelId}/learn`}>Return to beginning</Link>
-      </p>
-      <p>
-        <Link to={`/training/${modelId}`}>Skip to training</Link>
-      </p>
+      <div className="learn-body">
+        {/* .prose is the only hook the MDX output gets: the compiled pages are
+            plain HTML with no wrapper of their own, so every heading, paragraph
+            and code block is styled through descendant selectors from here. */}
+        <div className="prose">
+          <Body />
+        </div>
+
+        {/* On the last section, "Next" becomes the call to actually train. */}
+        <nav className="learn-nav">
+          <span>
+            {prev && <Link to={learn(prev.slug)}>&larr; {prev.title}</Link>}
+          </span>
+          <span>
+            {next ? (
+              <Link to={learn(next.slug)}>{next.title} &rarr;</Link>
+            ) : (
+              <Link to={`/training/${modelId}`}>Start training &rarr;</Link>
+            )}
+          </span>
+        </nav>
+      </div>
     </div>
   )
 }

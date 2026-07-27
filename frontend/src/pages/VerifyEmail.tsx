@@ -2,13 +2,21 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth'
+import Message from '../components/Message'
+import { message as toMessage } from '../train'
 
 export default function VerifyEmail() {
   const [params] = useSearchParams()
   const token = params.get('token') ?? ''
   const { user, reload } = useAuth()
-  const [status, setStatus] = useState('Verifying...')
-  const [ok, setOk] = useState(false)
+  // One string used to carry all three outcomes before — "Verifying...", the
+  // success message and every failure looked identical. The kind travels with the
+  // text now so the message can show which of the three this is.
+  const [state, setState] = useState<{ kind: 'info' | 'ok' | 'error'; text: string }>({
+    kind: 'info',
+    text: 'Verifying...',
+  })
+  const ok = state.kind === 'ok'
   // The token is single-use, so React 18+ StrictMode's double-mount in dev would
   // burn it on the first call and show "invalid link" from the second.
   const sent = useRef(false)
@@ -18,15 +26,14 @@ export default function VerifyEmail() {
     sent.current = true
     ;(async () => {
       if (!token) {
-        setStatus('Missing verification token')
+        setState({ kind: 'error', text: 'Missing verification token' })
         return
       }
       try {
         const res = await api<{ message: string }>('/auth/verify', { body: { token } })
-        setStatus(res.message)
-        setOk(true)
+        setState({ kind: 'ok', text: res.message })
       } catch (err) {
-        setStatus(err instanceof Error ? err.message : 'Verification failed')
+        setState({ kind: 'error', text: toMessage(err, 'Verification failed') })
       }
     })()
   }, [token])
@@ -41,10 +48,14 @@ export default function VerifyEmail() {
   }, [ok, user, reload])
 
   return (
-    <div>
-      <h1>Verify email</h1>
-      <p>{status}</p>
-      <p>{ok ? <Link to="/">Continue</Link> : <Link to="/login">Log in</Link>}</p>
+    <div className="container-form">
+      <div className="card">
+        <h1 className="card__title">Verify email</h1>
+        <Message kind={state.kind}>{state.text}</Message>
+      </div>
+      <p className="auth-links">
+        {ok ? <Link to="/">Continue</Link> : <Link to="/login">Log in</Link>}
+      </p>
     </div>
   )
 }

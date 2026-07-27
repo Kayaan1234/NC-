@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
+import Message from '../components/Message'
+import { message as toMessage } from '../train'
 
 export default function Register() {
   const [username, setUsername] = useState('')
@@ -25,7 +27,7 @@ export default function Register() {
       })
       setMessage(res.message)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Registration failed')
+      setError(toMessage(err, 'Registration failed'))
     } finally {
       setBusy(false)
     }
@@ -33,10 +35,12 @@ export default function Register() {
 
   if (message) {
     return (
-      <div>
-        <h1>Register</h1>
-        <p>{message}</p>
-        <p>
+      <div className="container-form">
+        <div className="card">
+          <h1 className="card__title">Check your email</h1>
+          <Message kind="ok">{message}</Message>
+        </div>
+        <p className="auth-links">
           <Link to="/login">Log in</Link>
         </p>
       </div>
@@ -44,71 +48,77 @@ export default function Register() {
   }
 
   return (
-    <div>
-      <h1>Register</h1>
-      <form onSubmit={onSubmit}>
-        <div>
-          <label htmlFor="username">Username</label>
-          <br />
-          <input
-            id="username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            minLength={3}
-            pattern="[a-zA-Z0-9_]+"
-            title="Letters, numbers and underscores only"
-            required
-          />
-        </div>
-        <div>
-          <label htmlFor="email">Email</label>
-          <br />
-          <input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-        </div>
-        <div>
-          <label htmlFor="password">Password</label>
-          <br />
-          <input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            minLength={8}
-            maxLength={30}
-            required
-          />
-          <br />
-          <small>8-30 characters, at least one uppercase letter and one digit.</small>
-        </div>
-        <div>
-          <label htmlFor="confirm-password">Confirm password</label>
-          <br />
-          <input
-            id="confirm-password"
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
-          />
-        </div>
-        <button type="submit" disabled={busy}>
-          {busy ? 'Registering...' : 'Register'}
-        </button>
-      </form>
-      {error && <p>{error}</p>}
-      <p>
-        <small>
+    <div className="container-form">
+      <div className="card">
+        <h1 className="card__title">Register</h1>
+        <form onSubmit={onSubmit}>
+          <div className="field">
+            <label htmlFor="username">Username</label>
+            <input
+              id="username"
+              autoComplete="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              minLength={3}
+              pattern="[a-zA-Z0-9_]+"
+              title="Letters, numbers and underscores only"
+              required
+            />
+            <small className="field__hint">
+              At least 3 characters. Letters, numbers and underscores only.
+            </small>
+          </div>
+          <div className="field">
+            <label htmlFor="email">Email</label>
+            <input
+              id="email"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="password">Password</label>
+            <input
+              id="password"
+              type="password"
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              minLength={8}
+              maxLength={30}
+              required
+            />
+            <small className="field__hint">
+              8-30 characters, at least one uppercase letter and one digit.
+            </small>
+          </div>
+          <div className="field">
+            <label htmlFor="confirm-password">Confirm password</label>
+            <input
+              id="confirm-password"
+              type="password"
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+            />
+          </div>
+          <div className="form-actions">
+            <button type="submit" className="btn-primary" disabled={busy}>
+              {busy ? 'Registering...' : 'Register'}
+            </button>
+          </div>
+        </form>
+        {error && <Message kind="error">{error}</Message>}
+        <p className="card__note">
           By registering you agree to how we handle your data, described in our{' '}
           <Link to="/privacy">Privacy Policy</Link>.
-        </small>
-      </p>
-      <p>
+        </p>
+      </div>
+      <p className="auth-links">
         <Link to="/login">Log in</Link>
       </p>
     </div>

@@ -1,0 +1,67 @@
+/* Design tokens.
+ *
+ * The surface is a dark grey terminal, so: never pure black (#000 on an OLED
+ * reads as a hole in the page and makes hairline borders impossible), never pure
+ * white (#fff on dark greys buzzes at small sizes). Everything sits in a narrow
+ * band between #101214 and #e4e6e8.
+ *
+ * There are exactly three hues in the whole app, all heavily desaturated, and all
+ * three carry meaning — a job's outcome, or a message's severity. Nothing is
+ * coloured for decoration. If you find yourself adding a fourth, the thing you
+ * want is probably a grey level or a font weight. */
+:root {
+  --bg: #16181a;
+  --bg-raised: #1d2022;
+  --bg-inset: #101214;
+
+  --border: #2b2f33;
+  --border-strong: #3a3f45;
+
+  --text: #e4e6e8;
+  --text-dim: #9aa0a6;
+  --text-faint: #6f7478;
+
+  --ok: #7d9a72;
+  --warn: #a3936a;
+  --err: #a5706b;
+
+  /* Tinted backgrounds for message rules: the hue at ~8% over --bg-raised, which
+   * is enough to read as "this block is different" without reading as a banner. */
+  --ok-bg: #1b211c;
+  --warn-bg: #22201b;
+  --err-bg: #221b1b;
+
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo,
+    Consolas, monospace;
+  --font-sans: 'IBM Plex Sans Variable', ui-sans-serif, system-ui, -apple-system,
+    'Segoe UI', sans-serif;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* Reading measure for prose; the app chrome is narrower than the page so job
+   * rows and forms don't sprawl on a wide monitor. */
+  --w-prose: 68ch;
+  --w-app: 56rem;
+  --w-form: 26rem;
+  --w-rail: 15rem;
+
+  /* Near-square. A 3px radius softens the edge without making anything look like
+   * an app-store card. */
+  --radius: 3px;
+
+  /* Referenced by BOTH the sticky top bar and the sticky learn rail, which offsets
+   * itself by exactly this much. Changing it in one place only would leave a gap
+   * above the rail on every scroll. */
+  --h-topbar: 48px;
+
+  /* The entire animation budget. Colour changes on hover/focus, nothing else —
+   * no keyframes exist anywhere in this codebase. */
+  --t: 100ms;
+}

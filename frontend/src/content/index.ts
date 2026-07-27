@@ -5,14 +5,16 @@
 
 import type { ModelContent } from './types'
 import step0Overview from './step0/1-overview.mdx'
-import step0Logreg from './step0/2-math.mdx'
+import step0Math from './step0/2-math.mdx'
+import step0Logreg from './step0/3-logistic_regression.mdx'
 
 export const MODEL_CONTENT: Record<string, ModelContent> = {
   step0: {
     name: 'Single Neuron (Logistic Regression)',
     sections: [
       { slug: 'overview', title: 'Overview', Body: step0Overview },
-      { slug: 'math', title: 'math.hpp', Body: step0Logreg },
+      { slug: 'math', title: 'math.hpp', Body: step0Math },
+      { slug: 'logistic_regression', title: 'logistic_regression.hpp', Body: step0Logreg },
     ],
   },
 }

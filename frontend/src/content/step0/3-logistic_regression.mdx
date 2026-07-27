@@ -1,0 +1,186 @@
+import Figure from '../../components/Figure'
+import BceLoss from '../diagrams/BceLoss'
+import LearningRate from '../diagrams/LearningRate'
+
+## logistic_regression.hpp
+
+This is the part where we actually build the node structure. Again, for completeness, here are the imports
+
+```cpp
+#pragma once
+#include <vector>
+#include <cmath>
+#include <algorithm> //for std::clamp
+#include <stdexcept>
+#include <random>
+#include "math.hpp"
+```
+
+We begin with creating a node structure, and define its attributes. Everything that follows on this
+page lives inside this struct, so the closing brace only arrives at the very end of the file.
+
+```cpp
+struct Node {
+    std::vector<double> vec;  // weights, one per input feature
+    double b;                 // bias
+    // ... everything below is a member of this struct
+```
+
+Naturally, the next task is the constructor. We initiate the weights to follow a 0 centred gaussian distribution, with a standard
+deviation of $1/\sqrt{n}$ — the reciprocal of the square root of the input size. Dividing by $\sqrt{n}$ is what keeps the sum
+$w \cdot x$ small no matter how many inputs there are, so the sigmoid starts life in its steep, high gradient region rather than
+out on the flat tails where it barely learns at all.
+
+```cpp
+explicit Node(std::size_t n, std::mt19937& rng) : vec(n), b(0.0) {
+      // scale ~ 1/sqrt(fan_in): keeps the initial w·x near the sigmoid's
+      // steep, high-gradient region instead of its flat, saturated tails.
+      const double scale = 1.0 / std::sqrt(static_cast<double>(n));
+      std::normal_distribution<double> dist(0.0, scale);
+      for (double& w : vec) w = dist(rng);
+}
+```
+
+Next, we move onto the forward pass, and this is where we use the functions defined in ```math.hpp```. x is the input vector, passed in
+as a constant reference. Note we use the standard ```sigmoid()``` here. This is because we closely control the inputs for the model.
+
+```cpp
+    double forward(const std::vector<double>& x) const {
+            return sigmoid(dot(x, vec) + b);
+    }
+```
+
+Within the ```Node``` struct, we also define a ```Grad``` struct, which will be used for the backward pass.
+
+```cpp
+    struct Grad {
+        std::vector<double> w;
+        double b = 0.0;
+    };
+```
+
+Next, lets look at the loss function. Something neat about binary cross entropy loss when combined with sigmoid, its derivative simplifies nicely, shown below.
+
+Write $p = \sigma(z)$ for the prediction, where $z = w \cdot x + b$ is the raw sum before the nonlinearity. For a single
+sample the loss is
+
+$$
+L = -\bigl[\, y \log p + (1 - y) \log (1 - p) \,\bigr]
+$$
+
+Only one of those two terms is ever alive: the label $y$ is 0 or 1, so it switches one off. Differentiating with respect to
+the prediction, then using the sigmoid derivative from the previous page, $\dfrac{dp}{dz} = p(1-p)$:
+
+$$
+\frac{\partial L}{\partial p} = -\frac{y}{p} + \frac{1 - y}{1 - p} = \frac{p - y}{p\,(1 - p)}
+$$
+
+$$
+\frac{\partial L}{\partial z}
+= \frac{\partial L}{\partial p} \cdot \frac{dp}{dz}
+= \frac{p - y}{p\,(1 - p)} \cdot p\,(1 - p)
+= p - y
+$$
+
+The $p(1-p)$ cancels completely. That is the whole trick: the gradient of a sigmoid fed into binary cross entropy is just
+the prediction minus the label, with no division and nothing that can blow up. Chaining out to the parameters and
+averaging over all $N$ samples:
+
+$$
+\frac{\partial L}{\partial w_j} = \frac{1}{N} \sum_{i=0}^{N-1} (p_i - y_i)\, x_{ij}
+\qquad
+\frac{\partial L}{\partial b} = \frac{1}{N} \sum_{i=0}^{N-1} (p_i - y_i)
+$$
+
+Those two formulas are exactly the loop you will see in ```gradient()``` below.
+
+<Figure
+  n={3}
+  caption="Why the loss is clamped. Only one branch applies to any given sample, and both rise without bound as the model becomes confident about the wrong answer; a prediction of exactly 0 or 1 would take log(0) and poison the whole epoch's average."
+>
+  <BceLoss />
+</Figure>
+
+That unbounded rise is what ```eps``` is defending against. Clamping ```p``` into [1e-7, 1 - 1e-7] costs nothing in accuracy and
+means a confidently wrong prediction can never produce an infinite loss.
+
+```cpp
+    double binaryLoss(const std::vector<double>& y, const std::vector<std::vector<double>>& x) const {
+        if (x.size() != y.size()) {
+            throw std::invalid_argument("x and y must have the same number of samples");
+        }
+
+        const double eps = 1e-7;
+        double loss = 0.0;
+        for (std::size_t i = 0; i < x.size(); ++i) {
+            double p = std::clamp(forward(x[i]), eps, 1.0 - eps); //clamps the region, ensures numerical stability. 
+            loss += y[i] * std::log(p) + (1.0 - y[i]) * std::log(1.0 - p);
+        }
+        loss = -loss / static_cast<double>(y.size()); //loss over all y values
+        return loss;
+    }
+```
+
+Lets look at the backward pass, which is collecting the gradient of the loss with respect to each of the weights and the singular bias. This is where the neat trick comes in with combining
+sigmoid and BCE loss. We accumulate the error into the ```Grad``` structure, for each input value, and then average over the size of the input vector.
+
+Watch the argument order: ```binaryLoss``` takes ```(y, x)``` but ```gradient``` takes ```(x, y)```. The two are the other way
+round to each other. The types differ enough that swapping them is a compile error rather than a silent wrong answer, but it
+is worth knowing before you call either one.
+
+```cpp
+    Grad gradient(const std::vector<std::vector<double>>& x, const std::vector<double>& y) const{
+        if (x.size() != y.size()) {
+            throw std::invalid_argument("x and y must have the same number of samples");
+        }
+        const std::size_t N = x.size();
+        std::vector<double> weight_gradients(vec.size(), 0.0);
+        double bias_gradient = 0.0;
+        for (std::size_t i = 0; i < N; ++i){
+            const double error = forward(x[i])-y[i];
+            for(std::size_t j = 0; j < x[i].size(); ++j){
+                
+                weight_gradients[j] += error * x[i][j]; 
+
+            }
+            bias_gradient += error;
+            
+
+        }
+        const double invN = 1.0 / static_cast<double>(N);
+        for (double& g : weight_gradients){
+            g *= invN;
+            
+        }
+        bias_gradient *= invN;
+
+        return Grad{weight_gradients, bias_gradient};
+    }
+```
+
+```error``` on that line is the $p - y$ we just derived — the cancellation is why the backward pass needs no call to a sigmoid
+derivative at all, and why it reuses ```forward()``` directly.
+
+Finally, lets look at update. We pass in a learning rate, which is exactly what it sounds like - how fast the model learns. Its important to not set this too high
+otherwise the model will overshoot the local minimum (of the loss function). Learning rate too low, and the model takes too long to learn.
+
+<Figure
+  n={4}
+  caption="The same descent at two badly chosen learning rates. Hollow dot marks the start. Too small and each step shrinks the weight only slightly, so the minimum is still far off; too large and every step jumps past the minimum and lands further out than it began."
+>
+  <LearningRate />
+</Figure>
+
+```cpp
+    void update(const Grad& g, double lr){
+            if (g.w.size() != vec.size())
+                throw std::invalid_argument("gradient and weights size mismatch");
+            for (std::size_t j = 0; j < vec.size(); ++j)
+                vec[j] -= lr * g.w[j];
+            b -= lr * g.b;
+        }
+};
+```
+
+That closing ```};``` is the end of the ```Node``` struct, and the end of the file. Forward, loss, gradient, update. With those
+four the neuron is complete, and training is just calling them in a loop.

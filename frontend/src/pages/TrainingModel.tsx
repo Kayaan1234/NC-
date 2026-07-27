@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth'
+import Message from '../components/Message'
+import VerifyNotice from '../components/VerifyNotice'
 import { message, type ModelSpec, type ParamSpec } from '../train'
 
 // Config page for one model, reached from the menu at /training. The model id
@@ -65,9 +67,8 @@ function Field({
   }
 
   return (
-    <div>
+    <div className="field">
       <label htmlFor={id}>{param.label}</label>
-      <br />
       {param.kind === 'choice' && (
         <select {...common}>
           {param.choices.map((c) => (
@@ -87,15 +88,11 @@ function Field({
           max={param.maximum ?? undefined}
         />
       )}
-      {param.kind === 'int_list' && (
-        <input {...common} type="text" placeholder="e.g. 64,32" />
-      )}
-      {param.help && (
-        <>
-          {' '}
-          <small>{param.help}</small>
-        </>
-      )}
+      {param.kind === 'int_list' && <input {...common} type="text" placeholder="e.g. 64,32" />}
+      {/* The help text used to trail the control inline on the same line, which
+          put the bounds of a parameter in the least readable place on the page.
+          It's a block hint under the input now. */}
+      {param.help && <small className="field__hint">{param.help}</small>}
     </div>
   )
 }
@@ -141,20 +138,31 @@ function RunForm({ model }: { model: ModelSpec }) {
   }
 
   return (
-    <form onSubmit={onSubmit}>
-      <h2>{model.name}</h2>
-      <p>{model.description}</p>
-      {model.params.map((p) => (
-        <Field key={p.name} param={p} value={values[p.name] ?? ''} onChange={(next) => setParam(p, next)} />
-      ))}
-      <button type="submit" disabled={busy}>
-        {busy ? 'Queuing...' : 'Run training'}
-      </button>
-      <p>
-        <small>One job at a time. Values outside the listed ranges are rejected by the server.</small>
-      </p>
-      {error && <p>{error}</p>}
-    </form>
+    <>
+      <div className="page-header">
+        <h1>{model.name}</h1>
+        <p>{model.description}</p>
+      </div>
+      <form className="card form-grid" onSubmit={onSubmit}>
+        {model.params.map((p) => (
+          <Field
+            key={p.name}
+            param={p}
+            value={values[p.name] ?? ''}
+            onChange={(next) => setParam(p, next)}
+          />
+        ))}
+        <div className="form-actions">
+          <button type="submit" className="btn-primary" disabled={busy}>
+            {busy ? 'Queuing...' : 'Run training'}
+          </button>
+        </div>
+        <p className="card__note">
+          One job at a time. Values outside the listed ranges are rejected by the server.
+        </p>
+        {error && <Message kind="error">{error}</Message>}
+      </form>
+    </>
   )
 }
 
@@ -186,26 +194,18 @@ export default function TrainingModel() {
 
   if (!user) return null
 
-  if (!user.verified) {
-    return (
-      <div>
-        <h1>Training</h1>
-        <p>Verify your email to run training jobs.</p>
-        <p>
-          <Link to="/">Home</Link>
-        </p>
-      </div>
-    )
-  }
+  if (!user.verified) return <VerifyNotice />
 
   return (
-    <div>
-      <p>
-        <Link to="/training">← All models</Link>
+    <div className="container-app">
+      <p className="backlink">
+        <Link to="/training">&larr; All models</Link>
       </p>
-      {loading && <p>Loading...</p>}
-      {error && <p>{error}</p>}
-      {!loading && !error && !model && <p>That model does not exist.</p>}
+      {loading && <p className="page-status">Loading...</p>}
+      {error && <Message kind="error">{error}</Message>}
+      {!loading && !error && !model && (
+        <Message kind="error">That model does not exist.</Message>
+      )}
       {/* key: remounting on model change re-seeds the form state from the new
           spec's defaults, instead of carrying the previous model's values over. */}
       {model && <RunForm key={model.model_id} model={model} />}

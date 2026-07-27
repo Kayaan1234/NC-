@@ -1,11 +1,9 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth'
-
-function message(err: unknown, fallback: string): string {
-  return err instanceof Error ? err.message : fallback
-}
+import Message from '../components/Message'
+import { message } from '../train'
 
 function ChangePassword() {
   const { logout } = useAuth()
@@ -40,39 +38,42 @@ function ChangePassword() {
   }
 
   return (
-    <form onSubmit={onSubmit}>
-      <h2>Change password</h2>
-      <div>
+    <form className="card" onSubmit={onSubmit}>
+      <h2 className="card__title">Change password</h2>
+      <div className="field">
         <label htmlFor="cp-current">Current password</label>
-        <br />
         <input
           id="cp-current"
           type="password"
+          autoComplete="current-password"
           value={currentPassword}
           onChange={(e) => setCurrentPassword(e.target.value)}
           required
         />
       </div>
-      <div>
+      <div className="field">
         <label htmlFor="cp-new">New password</label>
-        <br />
         <input
           id="cp-new"
           type="password"
+          autoComplete="new-password"
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
           minLength={8}
           maxLength={30}
           required
         />
-        <br />
-        <small>8-30 characters, at least one uppercase letter and one digit.</small>
+        <small className="field__hint">
+          8-30 characters, at least one uppercase letter and one digit.
+        </small>
       </div>
-      <button type="submit" disabled={busy}>
-        {busy ? 'Updating...' : 'Update password'}
-      </button>
-      <p>You will be logged out and need to log in again.</p>
-      {error && <p>{error}</p>}
+      <div className="form-actions">
+        <button type="submit" disabled={busy}>
+          {busy ? 'Updating...' : 'Update password'}
+        </button>
+      </div>
+      <p className="card__note">You will be logged out and need to log in again.</p>
+      {error && <Message kind="error">{error}</Message>}
     </form>
   )
 }
@@ -111,36 +112,40 @@ function ChangeEmail() {
   }
 
   return (
-    <form onSubmit={onSubmit}>
-      <h2>Change email</h2>
-      <div>
+    <form className="card" onSubmit={onSubmit}>
+      <h2 className="card__title">Change email</h2>
+      <div className="field">
         <label htmlFor="ce-email">New email</label>
-        <br />
         <input
           id="ce-email"
           type="email"
+          autoComplete="email"
           value={newEmail}
           onChange={(e) => setNewEmail(e.target.value)}
           required
         />
       </div>
-      <div>
+      <div className="field">
         <label htmlFor="ce-password">Current password</label>
-        <br />
         <input
           id="ce-password"
           type="password"
+          autoComplete="current-password"
           value={currentPassword}
           onChange={(e) => setCurrentPassword(e.target.value)}
           required
         />
       </div>
-      <button type="submit" disabled={busy}>
-        {busy ? 'Updating...' : 'Update email'}
-      </button>
-      <p>Changing your email marks it unverified until you use the new link. Once per day.</p>
-      {result && <p>{result}</p>}
-      {error && <p>{error}</p>}
+      <div className="form-actions">
+        <button type="submit" disabled={busy}>
+          {busy ? 'Updating...' : 'Update email'}
+        </button>
+      </div>
+      <p className="card__note">
+        Changing your email marks it unverified until you use the new link. Once per day.
+      </p>
+      {result && <Message kind="ok">{result}</Message>}
+      {error && <Message kind="error">{error}</Message>}
     </form>
   )
 }
@@ -175,25 +180,34 @@ function DeleteAccount() {
     }
   }
 
+  // The only irreversible action in the app, and until now it looked exactly like
+  // the two ordinary forms above it. The card gets a red left edge, the warning is
+  // stated before the control rather than after it, and the button is outlined in
+  // --err so it reads as dangerous without shouting from across the page.
   return (
-    <form onSubmit={onSubmit}>
-      <h2>Delete account</h2>
-      <div>
+    <form className="card card--danger" onSubmit={onSubmit}>
+      <h2 className="card__title">Delete account</h2>
+      <Message kind="error">
+        This permanently deletes your account, your training jobs and their reports. It cannot be
+        undone.
+      </Message>
+      <div className="field">
         <label htmlFor="da-password">Current password</label>
-        <br />
         <input
           id="da-password"
           type="password"
+          autoComplete="current-password"
           value={currentPassword}
           onChange={(e) => setCurrentPassword(e.target.value)}
           required
         />
       </div>
-      <button type="submit" disabled={busy}>
-        {busy ? 'Deleting...' : 'Delete account permanently'}
-      </button>
-      <p>This cannot be undone.</p>
-      {error && <p>{error}</p>}
+      <div className="form-actions">
+        <button type="submit" className="btn-danger" disabled={busy}>
+          {busy ? 'Deleting...' : 'Delete account permanently'}
+        </button>
+      </div>
+      {error && <Message kind="error">{error}</Message>}
     </form>
   )
 }
@@ -204,21 +218,38 @@ export default function Account() {
   if (!user) return null
 
   return (
-    <div>
-      <h1>Account</h1>
-      <ul>
-        <li>Username: {user.username}</li>
-        <li>Email: {user.email}</li>
-        <li>Verified: {user.verified ? 'yes' : 'no'}</li>
-      </ul>
-      <ChangePassword />
-      <hr />
-      <ChangeEmail />
-      <hr />
-      <DeleteAccount />
-      <p>
-        <Link to="/">Home</Link>
-      </p>
+    <div className="container-app">
+      <div className="page-header">
+        <h1>Account</h1>
+      </div>
+
+      <div className="card">
+        <dl className="kv">
+          <dt>user</dt>
+          <dd>{user.username}</dd>
+          <dt>email</dt>
+          <dd>{user.email}</dd>
+          <dt>verified</dt>
+          <dd>
+            <span
+              className={user.verified ? 'status status--succeeded' : 'status status--queued'}
+            >
+              {user.verified ? 'yes' : 'no'}
+            </span>
+          </dd>
+        </dl>
+      </div>
+
+      <div className="section">
+        <h2 className="section__title">Settings</h2>
+        <ChangePassword />
+        <ChangeEmail />
+      </div>
+
+      <div className="section">
+        <h2 className="section__title">Danger zone</h2>
+        <DeleteAccount />
+      </div>
     </div>
   )
 }

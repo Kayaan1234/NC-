@@ -6,6 +6,8 @@
 // its own result keys, and both pages render whatever the server sends — so
 // adding a rung needs no change in this directory.
 
+import { ApiError } from './api'
+
 export type ParamKind = 'choice' | 'float' | 'int' | 'int_list'
 
 export type ParamSpec = {
@@ -54,8 +56,24 @@ export type Job = {
 // user's single slot, and it's worth polling.
 export const ACTIVE = new Set(['queued', 'running'])
 
+// The single place an exception becomes text a user reads. Every page routes its
+// catch blocks through here.
+//
+// The retry_after branch is the one case where the server's own message isn't
+// enough: a rate limit says "too many requests" without saying when to come back,
+// which reads as a dead end rather than a wait. api.ts already parses the value
+// off the response — until now nothing read it.
 export function message(err: unknown, fallback: string): string {
-  return err instanceof Error ? err.message : fallback
+  if (!(err instanceof Error)) return fallback
+  if (err instanceof ApiError && err.retryAfter && err.retryAfter > 0) {
+    const secs = Math.ceil(err.retryAfter)
+    const wait =
+      secs >= 60
+        ? `${Math.ceil(secs / 60)} minute${Math.ceil(secs / 60) === 1 ? '' : 's'}`
+        : `${secs} second${secs === 1 ? '' : 's'}`
+    return `${err.message} Try again in ${wait}.`
+  }
+  return err.message
 }
 
 // One "test acc 92.3%" fragment, or '' if the run didn't produce that key.

@@ -1,0 +1,188 @@
+/* Long-form reading: the MDX learn pages and the privacy policy.
+ *
+ * This is the one place the app leaves monospace. Headings stay mono — they're
+ * labels, and on a source-file walkthrough they're often literally filenames —
+ * but body text is sans, because a 900-word explanation of backpropagation set in
+ * a coding face is a worse read than it is a stronger theme. */
+
+.prose {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--text);
+  max-width: var(--w-prose);
+}
+
+/* The rhythm of the whole page: every block gets space from the one above it.
+ *
+ * Nothing below may set `margin: 0` on a bare element selector — `.prose p` and
+ * `.prose ul` are (0,1,1) and would silently out-specify this (0,1,0) rule and
+ * flatten the page into one undifferentiated column of text. base.css already
+ * zeroes the browser's default margins, so there is no need to. */
+.prose > * + * {
+  margin-top: var(--space-4);
+}
+
+/* Asymmetric heading margins: a heading belongs to what follows it, so the space
+ * above is large and the space below is small. */
+.prose h1,
+.prose h2,
+.prose h3 {
+  font-family: var(--font-mono);
+}
+
+.prose > h1 {
+  font-size: 1.5rem;
+  margin-top: var(--space-8);
+  margin-bottom: var(--space-4);
+}
+
+.prose > h2 {
+  font-size: 1.25rem;
+  margin-top: var(--space-7);
+  margin-bottom: var(--space-3);
+}
+
+.prose > h3 {
+  font-size: 1.0625rem;
+  margin-top: var(--space-6);
+  margin-bottom: var(--space-2);
+}
+
+/* The first heading on a page sits under the container's own padding already. */
+.prose > :first-child {
+  margin-top: 0;
+}
+
+/* A dateline or byline directly under the title — not body copy. */
+.prose__meta {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-faint);
+}
+
+.prose strong {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.prose em {
+  font-style: italic;
+}
+
+.prose a {
+  color: var(--text);
+}
+
+.prose ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.prose ol {
+  list-style: decimal;
+  padding-left: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* Hanging indent so `<strong>Term</strong> — definition` lists (the privacy
+ * policy is built out of them) align their definitions rather than wrapping back
+ * under the term. */
+.prose ul > li {
+  padding-left: var(--space-5);
+  text-indent: calc(-1 * var(--space-5));
+}
+
+.prose ul > li::before {
+  content: '—';
+  color: var(--text-faint);
+  display: inline-block;
+  width: var(--space-5);
+  text-indent: 0;
+}
+
+.prose ol > li {
+  padding-left: var(--space-1);
+}
+
+/* Inline code, including MDX's ```double``` spans and the policy's
+ * <code>refresh_token</code>. Shiki never touches these — it only rewrites fenced
+ * blocks — so they're styled here. */
+.prose :not(pre) > code {
+  font-family: var(--font-mono);
+  /* See code.css: `>=` must not render as ≥ in text about C++. */
+  font-variant-ligatures: none;
+  font-feature-settings: 'liga' 0, 'calt' 0;
+  font-size: 0.8125em;
+  padding: 0.15em 0.4em;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.prose blockquote {
+  border-left: 2px solid var(--border-strong);
+  padding-left: var(--space-4);
+  color: var(--text-dim);
+}
+
+.prose hr {
+  margin: var(--space-7) 0;
+}
+
+/* ---- Authoring cues -------------------------------------------------------- */
+
+/* An unfilled ```todo block (see content/rehype-todo-cue.ts). Deliberately the
+ * loudest thing this stylesheet can produce: a dashed amber frame that no reader
+ * would mistake for finished content, because the previous placeholder convention
+ * rendered as ordinary prose and shipped unnoticed. If this looks out of place on
+ * a page, that is the point — it means the page is not done. */
+.prose .cue {
+  border: 1px dashed var(--warn);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+  background: var(--warn-bg);
+  font-family: var(--font-mono);
+}
+
+.prose .cue__label {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--warn);
+  margin-bottom: var(--space-2);
+}
+
+.prose .cue__body {
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: var(--text-dim);
+  white-space: pre-wrap;
+}
+
+/* ---- KaTeX ----------------------------------------------------------------- */
+
+/* katex.min.css sets .katex { font-size: 1.21em } and its own line-height, which
+ * would otherwise punch a hole in the 1.7 prose rhythm. Pull both back. */
+.prose .katex {
+  font-size: 1.05em;
+  color: var(--text);
+}
+
+.prose .katex-display {
+  margin: var(--space-6) 0;
+  padding: var(--space-2) 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.prose .katex-display > .katex {
+  /* Long expressions scroll inside the block rather than widening the page. */
+  white-space: nowrap;
+}

@@ -1,5 +1,3 @@
-import { Link } from 'react-router-dom'
-
 // Public, ungated page: a logged-out visitor (and search engines) must be able
 // to read it, so it's routed outside RequireAuth/PublicOnly in App.tsx.
 //
@@ -18,9 +16,12 @@ const LAST_UPDATED = '16 July 2026'
 
 export default function Privacy() {
   return (
-    <div>
+    // .prose is the same reading treatment the MDX learn pages get: sans body at
+    // a 68ch measure. This is the longest continuous text in the app and the one
+    // most punished by a full-width mono column.
+    <div className="container-prose prose">
       <h1>Privacy Policy</h1>
-      <p>Last updated: {LAST_UPDATED}</p>
+      <p className="prose__meta">Last updated: {LAST_UPDATED}</p>
 
       <p>
         This policy explains what personal data NC++ (&ldquo;we&rdquo;,
@@ -159,10 +160,6 @@ export default function Privacy() {
       <p>
         If we make material changes we will update this page and the &ldquo;last
         updated&rdquo; date above.
-      </p>
-
-      <p>
-        <Link to="/">Back</Link>
       </p>
     </div>
   )

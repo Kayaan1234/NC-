@@ -1,0 +1,10 @@
+/* Single stylesheet entry, imported by main.tsx.
+ * Order matters: tokens define the custom properties everything below consumes,
+ * and base sets element defaults that the component layers then override. */
+@import './tokens.css';
+@import './base.css';
+@import './layout.css';
+@import './forms.css';
+@import './components.css';
+@import './prose.css';
+@import './code.css';
