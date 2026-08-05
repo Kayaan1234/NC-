@@ -56,6 +56,7 @@ export default function Register() {
             <label htmlFor="username">Username</label>
             <input
               id="username"
+              type="text"
               autoComplete="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}

@@ -22,6 +22,14 @@
   line-height: 1.5;
 }
 
+/* `input:not([type])` is not padding out the list — it is load-bearing. An <input>
+ * with no type attribute behaves as a text field, but an attribute selector needs
+ * the attribute to be *present*, so `input[type='text']` skips it and the field
+ * falls back to the browser default: a pale box, system font, and no width: 100%.
+ * The register form's username shipped that way, sitting light and short in a
+ * column of dark inputs. Matching the untyped case means the next person who omits
+ * type gets a field that looks right rather than a bug nobody thinks to grep for. */
+input:not([type]),
 input[type='text'],
 input[type='email'],
 input[type='password'],

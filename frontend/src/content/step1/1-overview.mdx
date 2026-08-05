@@ -1,0 +1,25 @@
+import Figure from '../../components/Figure'
+import LearnLink from '../../components/LearnLink'
+import Mlp from '../diagrams/Mlp'
+
+# Overview
+
+<Figure
+  n={1}
+  caption="A multilayer perceptron: two inputs, a hidden layer of three units, two outputs. Every unit feeds every unit of the next layer, and the σ inside each hidden unit is the nonlinearity. Without the nonlinearity, the three layers would collapse back into a single neuron. Each hidden and output unit also carries its own bias, not drawn here."
+>
+  <Mlp />
+</Figure>
+
+The multilayer perceptron, or MLP for short, is what most people picture instinctively when they think about a **neural network**.
+MLPs have some serious power, and have very real and very useful practical applications we will see later on. Many
+concepts are similar to the <LearnLink to="/training/step0/learn/overview">single neuron overview</LearnLink>, so I recommend you brush up on those concepts.
+
+As can be seen in the diagram above, instead of one neuron, we have multiple, arranged in layers. This particular network has
+has 2 layers, one **hidden** layer, and an output layer. The input layer is not included in the total layer count. An MLP is sort of a black box, as when trained, the internal layers, weights, 
+and biases make it hard for humans to trace the exact logic behind its specific decisions. 
+
+In this section, I will build up more concepts such as batch size, how to optimise resources and compute time, 
+some more linear alegebra and calculus, and bring you up to speed with essential machine learning theory. 
+
+
