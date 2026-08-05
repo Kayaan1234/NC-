@@ -1,7 +1,11 @@
+import logging
+
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, DeclarativeBase
+from sqlalchemy.orm import Session, sessionmaker, DeclarativeBase
 
 from backend.core.config import settings
+
+logger = logging.getLogger("backend.database")
 
 if settings.DATABASE_URL.startswith("sqlite"):
     # check_same_thread is a SQLite-only connect arg; Postgres (psycopg) rejects
@@ -42,4 +46,37 @@ def get_db(): #context manager that provides a database session for use in a wit
         yield db
     finally:
         db.close()
+
+
+def close_quietly(db: Session) -> None:
+    """Close a session, swallowing (but logging) an error from the close itself.
+
+    For the tear-down path of the long-lived loops. A session holding a dropped
+    connection can raise on close, and that must not be able to abort a shutdown
+    sequence that still has other work to do.
+    """
+    try:
+        db.close()
+    except Exception:                            # noqa: BLE001 - see docstring
+        logger.exception("failed to close a database session; dropping it")
+
+
+def reset_session(db: Session) -> Session:
+    """Discard a session that just errored and return a fresh one.
+
+    The always-on loops (backend.worker and backend.services.email_drain) cannot
+    just rollback() and keep going. Verified against the dev database: if the
+    connection under a session is dropped, `session.rollback()` raises
+    OperationalError — and in those loops the rollback lived *inside* the
+    `except` handler, so it escaped the handler entirely and killed the loop.
+    pool_pre_ping doesn't help: it validates a connection at *checkout*, not one
+    a session is already holding. Closing returns/invalidates that connection and
+    reopening takes a pre-pinged one from the pool, so an RDS failover or an
+    idle-connection reap costs one iteration instead of the whole process.
+
+    Callers must rebind: `db = reset_session(db)`. Anything still attached to the
+    old session is detached afterwards, so drop those references too.
+    """
+    close_quietly(db)
+    return SessionLocal()
 

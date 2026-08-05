@@ -29,7 +29,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from backend.core.config import settings
-from backend.database import SessionLocal
+from backend.database import SessionLocal, close_quietly, reset_session
 from backend.models.TrainingJob import JobStatus, TrainingJob, utcnow as _utcnow
 from backend.services import email_drain
 from backend.services.params import check_registry
@@ -200,13 +200,13 @@ def main() -> None:
 
     # One long-lived session: this is a single-threaded loop, and it owns its own
     # connection rather than borrowing a request-scoped one (there is no request).
+    # It is NOT reused after an error — the except below replaces it outright
+    # (reset_session). The rollback that used to sit there raises OperationalError
+    # when the connection has actually dropped, and because it ran *inside* the
+    # except handler that exception escaped and took the worker down. That matters
+    # here in a way it doesn't locally: this process is meant to stay up for weeks
+    # across RDS failovers and idle-connection reaping.
     #
-    # TODO(prod worker): this session lives for the life of the process, and the
-    # loop below reuses it after a rollback. That's fine locally, but if the
-    # connection genuinely drops, the rollback can itself raise and the loop will
-    # spin on a dead session — pool_pre_ping validates a connection at checkout,
-    # not one a session is already holding. A long-lived deployed worker wants a
-    # fresh session per iteration, or reconnect-on-error.
     # The email outbox is drained regardless of TRAINING_ENABLED: deploy this
     # worker at launch and signup/verification email flows immediately; flip
     # TRAINING_ENABLED on later to start draining training jobs too.
@@ -241,15 +241,27 @@ def main() -> None:
                     current = None      # terminal; nothing to release
             except Exception:                    # noqa: BLE001
                 # A database blip must not kill the worker; log, back off, retry.
+                # The session is replaced rather than rolled back: see the note
+                # above and database.reset_session. `current` is dropped with it
+                # (it was attached to the old session, and is now detached) — the
+                # job stays RUNNING and the stale-heartbeat reclaim frees it.
                 logger.exception("worker loop error; backing off")
-                db.rollback()
+                db = reset_session(db)
                 current = None
                 time.sleep(max(1.0, settings.JOB_POLL_INTERVAL_SECONDS))
 
         if current is not None:
-            release(db, current)
+            # Best effort: this runs on the way out, so a failure here must not
+            # turn a clean shutdown into a traceback. If the requeue can't be
+            # written the job is left RUNNING, and the stale-heartbeat reclaim
+            # eventually fails it — worse for the user than a requeue, but their
+            # active slot is still freed either way.
+            try:
+                release(db, current)
+            except Exception:                    # noqa: BLE001
+                logger.exception("could not requeue in-flight job on shutdown")
     finally:
-        db.close()
+        close_quietly(db)
         # _shutdown is already set; give the email thread a moment to finish its
         # current row and exit cleanly (it's a daemon, so this never hangs exit).
         email_thread.join(timeout=10)

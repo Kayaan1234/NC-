@@ -12,6 +12,7 @@ import ForgotPassword from './pages/ForgotPassword'
 import PasswordReset from './pages/PasswordReset'
 import VerifyEmail from './pages/VerifyEmail'
 import Privacy from './pages/Privacy'
+import Terms from './pages/Terms'
 import Landing from './pages/Landing'
 
 // `/` is the one route that serves two pages: the dashboard to a signed-in user,
@@ -136,8 +137,11 @@ export default function App() {
             logged in — so these two are not PublicOnly. */}
         <Route path="/password-reset" element={<PasswordReset />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
-        {/* Public legal page: readable logged in OR out, so no gate wrapper. */}
+        {/* Public legal pages: readable logged in OR out, so no gate wrapper.
+            /terms in particular has to be reachable *before* registering, since
+            that is where the register form says you agree to it. */}
         <Route path="/privacy" element={<Privacy />} />
+        <Route path="/terms" element={<Terms />} />
         {/* Unknown URLs go to `/`, which now means a logged-out visitor who
             mistypes a path lands on the landing page rather than on the login
             form. That is the right default for a public site, and is why there is

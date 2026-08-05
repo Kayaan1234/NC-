@@ -178,8 +178,15 @@ main {
   font-size: 0.8125rem;
 }
 
+/* Flex rather than inline text: JSX collapses the newline between two sibling
+   links to nothing, so the legal links would otherwise render as one run-on
+   word. The gap is the separator — no interpunct character to style. */
 .footer {
   flex: none;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
   padding: var(--space-5);
   border-top: 1px solid var(--border);
   text-align: center;

@@ -33,7 +33,7 @@ from backend.core.email import (
     send_password_reset_email,
     send_verification_email,
 )
-from backend.database import SessionLocal
+from backend.database import SessionLocal, close_quietly, reset_session
 from backend.models.EmailOutbox import EmailOutbox, EmailOutboxStatus, EmailType, utcnow
 from backend.models.user import User
 
@@ -186,7 +186,12 @@ def run(should_stop: Callable[[], bool]) -> None:
     """The drain loop. Owns its own session (a thread must not share the training
     loop's), exits when should_stop() is true, and never propagates an exception —
     a DB blip logs, backs off, and retries, so the thread outlives transient
-    faults for the whole life of the worker."""
+    faults for the whole life of the worker.
+
+    On error the session is *replaced*, not rolled back: this loop is the only
+    thing that ever delivers a signup verification email, and a session wedged on
+    a dropped connection would stop that silently, with registrations queueing up
+    and going `dead` after their backoff. See database.reset_session."""
     logger.info("email drain started (poll=%ss)", settings.EMAIL_OUTBOX_POLL_SECONDS)
     db = SessionLocal()
     last_reclaim = 0.0
@@ -201,8 +206,8 @@ def run(should_stop: Callable[[], bool]) -> None:
                     time.sleep(settings.EMAIL_OUTBOX_POLL_SECONDS)
             except Exception:  # noqa: BLE001
                 logger.exception("email drain loop error; backing off")
-                db.rollback()
+                db = reset_session(db)
                 time.sleep(max(1.0, settings.EMAIL_OUTBOX_POLL_SECONDS))
     finally:
-        db.close()
+        close_quietly(db)
         logger.info("email drain stopped")

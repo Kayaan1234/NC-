@@ -56,6 +56,7 @@ export default function Layout() {
 
       <footer className="footer">
         <Link to="/privacy">Privacy Policy</Link>
+        <Link to="/terms">Terms of Service</Link>
       </footer>
     </div>
   )
