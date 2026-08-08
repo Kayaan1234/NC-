@@ -81,7 +81,7 @@ export default function Learn() {
         </div>
 
         {/* On the last section, "Next" becomes the call to actually train. */}
-        <nav className="learn-nav">
+        <nav className="learn-nav" aria-label="Section pagination">
           <span>
             {prev && <Link to={learn(prev.slug)}>&larr; {prev.title}</Link>}
           </span>
