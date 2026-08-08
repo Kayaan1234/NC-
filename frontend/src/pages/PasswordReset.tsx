@@ -17,6 +17,7 @@ export default function PasswordReset() {
   // Check the link before showing the form. /validate is read-only — it applies
   // the same criteria as the reset itself without consuming the single-use token.
   useEffect(() => {
+    let cancelled = false
     ;(async () => {
       if (!token) {
         setTokenError('Missing reset token')
@@ -26,11 +27,14 @@ export default function PasswordReset() {
       try {
         await api<{ message: string }>('/auth/reset-password/validate', { body: { token } })
       } catch (err) {
-        setTokenError(toMessage(err, 'Invalid or expired password reset link'))
+        if (!cancelled) setTokenError(toMessage(err, 'Invalid or expired password reset link'))
       } finally {
-        setChecking(false)
+        if (!cancelled) setChecking(false)
       }
     })()
+    return () => {
+      cancelled = true
+    }
   }, [token])
 
   async function onSubmit(e: React.FormEvent) {

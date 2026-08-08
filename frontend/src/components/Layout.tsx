@@ -34,8 +34,12 @@ export default function Layout() {
             the page you were already on. That stopped being true when / became the
             public landing page: a visitor reading it is on neither, and the way in
             has to be somewhere. */}
+        {/* Named because a learn page puts three navigation landmarks on screen
+            at once (this one, the section rail, and the prev/next pager). An
+            unnamed landmark is announced as a bare "navigation", which makes the
+            rotor a list of identical entries. */}
         {user ? (
-          <nav className="topbar__nav">
+          <nav className="topbar__nav" aria-label="Main">
             <NavLink to="/training">training</NavLink>
             <NavLink to="/account">account</NavLink>
             <button type="button" className="topbar__link" onClick={onLogout}>
@@ -43,7 +47,7 @@ export default function Layout() {
             </button>
           </nav>
         ) : (
-          <nav className="topbar__nav">
+          <nav className="topbar__nav" aria-label="Main">
             <NavLink to="/login">log in</NavLink>
             <NavLink to="/register">register</NavLink>
           </nav>

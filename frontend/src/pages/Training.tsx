@@ -129,21 +129,31 @@ export default function Training() {
 
   // Every /train route requires a verified email (403 otherwise), so there's
   // nothing to fetch for an unverified user — skip straight to the notice below.
+  // The guard belongs here in the effect, NOT inside loadJobs: loadJobs is shared
+  // with clearFinished() and with the 2-second poll below, and a cancelled flag
+  // living inside it would silence those too — the poll would stop updating the
+  // moment this effect re-ran.
   useEffect(() => {
     if (!user?.verified) {
       setLoading(false)
       return
     }
+    let cancelled = false
     ;(async () => {
       try {
-        setModels(await api<ModelSpec[]>('/train/models', { method: 'GET', auth: true }))
+        const models = await api<ModelSpec[]>('/train/models', { method: 'GET', auth: true })
+        if (cancelled) return
+        setModels(models)
         await loadJobs()
       } catch (err) {
-        setError(message(err, 'Could not load training'))
+        if (!cancelled) setError(message(err, 'Could not load training'))
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     })()
+    return () => {
+      cancelled = true
+    }
   }, [user, loadJobs])
 
   // Poll only while something is in flight; the interval clears itself the moment
