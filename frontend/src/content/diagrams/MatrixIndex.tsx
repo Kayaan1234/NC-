@@ -12,7 +12,8 @@
 // array that the same i/j/k loop from matrix.hpp accumulates into, so the
 // running values are whatever the code would actually produce.
 
-import { Frame, Grid, Note, gridHeight, gridWidth, m } from './matrix'
+import { Frame, Grid, Note } from './matrix'
+import { gridHeight, gridWidth, m } from './matrix-geometry'
 
 const WIDTH = 480
 

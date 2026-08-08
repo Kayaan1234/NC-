@@ -6,7 +6,8 @@
 // explain itself. That arithmetic is Figure 3's job, and putting it here would
 // answer a question the page has not asked yet.
 
-import { Frame, Grid, Note, CELL, gridWidth, m } from './matrix'
+import { Frame, Grid, Note } from './matrix'
+import { CELL, gridWidth, m } from './matrix-geometry'
 
 const A = m(3, 3, [0, 1, 2, 3, 4, 5, 6, 7, 8], 'the matrix you picture')
 // The flat form is the same values in the same row-major order — derived, not

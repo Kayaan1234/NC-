@@ -10,7 +10,8 @@
 // — never typed out. These figures exist to be trusted at a glance, and a
 // hand-typed answer cell is exactly the error a reader cannot catch.
 
-import { Frame, Glyph, Grid, Note, gridHeight, gridWidth, m, type M } from './matrix'
+import { Frame, Glyph, Grid, Note } from './matrix'
+import { gridHeight, gridWidth, m, type M } from './matrix-geometry'
 
 // --- shared layout -----------------------------------------------------------
 
