@@ -131,6 +131,22 @@ export function ticks(from: number, to: number, step: number): number[] {
   return out
 }
 
+/**
+ * Ticks with the origin dropped.
+ *
+ * Every figure with crossed axes wants this: a "0" label at the origin collides
+ * with the other axis it is labelling, and both axes would print it. Each plot
+ * used to re-derive it with its own `.filter((t) => t !== 0)` on the call site.
+ */
+export function ticksNoZero(from: number, to: number, step: number): number[] {
+  const out: number[] = []
+  for (let v = from; v <= to + step / 2; v += step) {
+    const t = Number(v.toFixed(6))
+    if (t !== 0) out.push(t)
+  }
+  return out
+}
+
 function round(n: number): number {
   return Math.round(n * 100) / 100
 }

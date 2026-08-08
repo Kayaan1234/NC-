@@ -98,7 +98,6 @@ export function formatResult(field: ResultField, result: Record<string, unknown>
 export function summarise(job: Job, spec: ModelSpec | undefined): string {
   if (!spec || !job.result) return ''
   return spec.result_fields
-    .map((f) => formatResult(f, job.result as Record<string, unknown>))
-    .filter(Boolean)
+    .flatMap((f) => formatResult(f, job.result as Record<string, unknown>) || [])
     .join(', ')
 }

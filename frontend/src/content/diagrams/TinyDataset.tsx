@@ -1,4 +1,4 @@
-import { boundary, scale, ticks, type PlotArea } from './plot'
+import { boundary, scale, ticksNoZero, type PlotArea } from './plot'
 
 // The `tiny` dataset with the boundary the neuron actually finds.
 //
@@ -82,40 +82,36 @@ export default function TinyDataset() {
           {/* No tick at x = 2: the point (2, -0.5) sits just below the axis there
               and its marker lands exactly on where the label would print. Two
               ticks are enough to read the scale off. */}
-          {ticks(-1, 1, 1)
-            .filter((t) => t !== 0)
-            .map((t) => (
-              <g key={`x${t}`}>
-                <path d={`M${s.sx(t)} ${y0}v4`} />
-                <text
-                  x={s.sx(t)}
-                  y={y0 + 17}
-                  textAnchor="middle"
-                  fill="currentColor"
-                  opacity="0.8"
-                  style={HALO}
-                >
-                  {t}
-                </text>
-              </g>
-            ))}
-          {ticks(-2, 2, 2)
-            .filter((t) => t !== 0)
-            .map((t) => (
-              <g key={`y${t}`}>
-                <path d={`M${x0} ${s.sy(t)}h-4`} />
-                <text
-                  x={x0 - 9}
-                  y={s.sy(t) + 3.5}
-                  textAnchor="end"
-                  fill="currentColor"
-                  opacity="0.8"
-                  style={HALO}
-                >
-                  {t}
-                </text>
-              </g>
-            ))}
+          {ticksNoZero(-1, 1, 1).map((t) => (
+            <g key={`x${t}`}>
+              <path d={`M${s.sx(t)} ${y0}v4`} />
+              <text
+                x={s.sx(t)}
+                y={y0 + 17}
+                textAnchor="middle"
+                fill="currentColor"
+                opacity="0.8"
+                style={HALO}
+              >
+                {t}
+              </text>
+            </g>
+          ))}
+          {ticksNoZero(-2, 2, 2).map((t) => (
+            <g key={`y${t}`}>
+              <path d={`M${x0} ${s.sy(t)}h-4`} />
+              <text
+                x={x0 - 9}
+                y={s.sy(t) + 3.5}
+                textAnchor="end"
+                fill="currentColor"
+                opacity="0.8"
+                style={HALO}
+              >
+                {t}
+              </text>
+            </g>
+          ))}
         </g>
 
         <text
