@@ -21,6 +21,13 @@ export default function VerifyEmail() {
   // burn it on the first call and show "invalid link" from the second.
   const sent = useRef(false)
 
+  // Deliberately NOT cancelled on cleanup, unlike the other pages' fetches. The
+  // two guards would fight: StrictMode runs effect → cleanup → effect, so a
+  // cancelled flag set by that cleanup would discard the first call's result
+  // while `sent` blocks the second call from ever replacing it, leaving the page
+  // stuck on "Verifying..." in dev. The single-use token means the request must
+  // happen exactly once and its answer must land, so the ref wins here; the cost
+  // is one no-op setState if you navigate away mid-request.
   useEffect(() => {
     if (sent.current) return
     sent.current = true

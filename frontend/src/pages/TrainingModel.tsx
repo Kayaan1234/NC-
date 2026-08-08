@@ -175,21 +175,30 @@ export default function TrainingModel() {
 
   // Every /train route requires a verified email (403 otherwise), so skip the
   // fetch for an unverified user and show the same notice the menu does.
+  //
+  // The cancelled flag is load-bearing, not hygiene: modelId is a dependency, so
+  // moving between two models fast enough leaves two fetches in flight, and
+  // whichever answers LAST wins the setState. Without the guard that is a page
+  // showing a model you are no longer on.
   useEffect(() => {
     if (!user?.verified) {
       setLoading(false)
       return
     }
+    let cancelled = false
     ;(async () => {
       try {
         const models = await api<ModelSpec[]>('/train/models', { method: 'GET', auth: true })
-        setModel(models.find((m) => m.model_id === modelId) ?? null)
+        if (!cancelled) setModel(models.find((m) => m.model_id === modelId) ?? null)
       } catch (err) {
-        setError(message(err, 'Could not load model'))
+        if (!cancelled) setError(message(err, 'Could not load model'))
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     })()
+    return () => {
+      cancelled = true
+    }
   }, [user, modelId])
 
   if (!user) return null
