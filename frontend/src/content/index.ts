@@ -10,6 +10,7 @@ import step0Logreg from './step0/3-logistic_regression.mdx'
 import step0Main from './step0/4-train-loop_and_the_data.mdx'
 import step1Overview from './step1/1-overview.mdx'
 import step1Matrix from './step1/2-matrix.mdx'
+import step1Math from './step1/3-math.mdx'
 
 export const MODEL_CONTENT: Record<string, ModelContent> = {
   step0: {
@@ -29,6 +30,7 @@ export const MODEL_CONTENT: Record<string, ModelContent> = {
     sections: [
       { slug: 'overview', title: 'Overview', Body: step1Overview },
       { slug: 'matrix', title: 'matrix.hpp', Body: step1Matrix },
+      { slug: 'math', title: 'math.hpp', Body: step1Math },
     ],
   },
 }

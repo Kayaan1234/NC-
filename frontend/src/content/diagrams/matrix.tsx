@@ -39,6 +39,10 @@ function Brackets({ x, y, w, h }: { x: number; y: number; w: number; h: number }
  * rather than a fill, since fills are reserved for var(--bg) knock-outs.
  * `ghost` dashes the brackets, used for the copies of a broadcast bias row that
  * do not really exist in memory.
+ * `format` overrides the default 2dp for a figure whose numbers do not survive
+ * it: the softmax exponentials round to 1, 0.37, 0.14, 0.05, which visibly fail
+ * to sum to the 1.55 printed beside them. A figure that shows a running total
+ * has to print enough digits for the total to be checkable, so it asks for 3dp.
  */
 export function Grid({
   a,
@@ -48,6 +52,7 @@ export function Grid({
   cellH = CELL.h,
   emphasis,
   ghost = false,
+  format = fmt,
 }: {
   a: M
   x: number
@@ -56,6 +61,7 @@ export function Grid({
   cellH?: number
   emphasis?: (i: number, j: number) => boolean
   ghost?: boolean
+  format?: (v: number) => string
 }) {
   const w = gridWidth(a, cellW)
   const h = gridHeight(a, cellH)
@@ -86,7 +92,7 @@ export function Grid({
             stroke="none"
             opacity={ghost ? 0.45 : on ? 1 : 0.9}
           >
-            {fmt(at(a, i, j))}
+            {format(at(a, i, j))}
           </text>
         </g>,
       )
