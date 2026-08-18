@@ -6,7 +6,6 @@
 #include "matrix.hpp"
 #include <random>
 #include "math.hpp"
-#include <iostream>
 
 enum Activation{
     TANH,
@@ -111,13 +110,7 @@ struct Layer{
         grad_weight = matmul(transpose(cache_input), temp);
 
         //finally dL/dX - this is just dL_dz x dz_dX. dz_dX is W^T. 
-
-        
         return matmul(temp, transpose(weight));
-    
-        
-
-
     }
     Matrix& update(double lr){
         scale_(grad_weight, lr);

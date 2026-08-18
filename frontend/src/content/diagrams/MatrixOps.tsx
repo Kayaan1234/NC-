@@ -154,7 +154,7 @@ export function BiasBroadcast() {
       <Grid a={ADD_C} x={cX} y={CY - gridHeight(ADD_C) / 2} />
 
       <Note x={WIDTH / 2} y={NOTE_Y}>
-        the dashed row is implied, never stored — Bias stays one row of three
+        the dashed row is implied, never stored, so Bias stays one row of three
       </Note>
     </Frame>
   )
@@ -185,7 +185,7 @@ export function Subtract() {
         ]}
       />
       <Note x={WIDTH / 2} y={NOTE_Y}>
-        same position, same position — so the two shapes must match exactly
+        same position, same position, so the two shapes must match exactly
       </Note>
     </Frame>
   )
@@ -216,7 +216,7 @@ export function Hadamard() {
         ]}
       />
       <Note x={WIDTH / 2} y={NOTE_Y}>
-        nothing is summed — this is not matmul, the shape comes out unchanged
+        nothing gets summed here, so the shape comes out unchanged
       </Note>
     </Frame>
   )
@@ -246,7 +246,7 @@ export function Scale() {
         ]}
       />
       <Note x={WIDTH / 2} y={NOTE_Y}>
-        one scalar over every cell — the 1/N in a gradient looks exactly like this
+        one scalar over every cell, and a gradient's 1/N looks exactly like this
       </Note>
     </Frame>
   )
@@ -279,7 +279,7 @@ export function ApplySigmoid() {
         ]}
       />
       <Note x={WIDTH / 2} y={NOTE_Y}>
-        σ runs over each cell in turn — same shape out, every value now in (0, 1)
+        σ runs over each cell in turn, same shape out, every value now in (0, 1)
       </Note>
     </Frame>
   )

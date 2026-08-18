@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <random>
 #include <cmath>
+#include <algorithm>
 
 struct Matrix {
     int rows;
@@ -69,11 +70,14 @@ inline void matmul(const Matrix& A, const Matrix& B, Matrix& out) {
     if (A.columns != B.rows){
         throw std::invalid_argument("Columns of A must be equal to the rows of B");
     }
+    if (out.rows != A.rows || out.columns != B.columns){
+        throw std::invalid_argument("Output buffer is wrong shape");
+    }
     const int m = A.rows;        // C is m x p
     const int n = A.columns;     // shared dimension (== B.rows)
     const int p = B.columns;
     std::fill(out.row_values.begin(), out.row_values.end(), 0.0);  // zero it
-    
+
     for (int i = 0; i < m; ++i){
         for (int j = 0; j < n; ++j) {
             const double a = A.row_values[i * n + j];
@@ -81,7 +85,6 @@ inline void matmul(const Matrix& A, const Matrix& B, Matrix& out) {
                 out.row_values[i * p + k] += a * B.row_values[j * p + k];
         }
     }
-    
 }
 
 inline Matrix transpose(const Matrix &A){

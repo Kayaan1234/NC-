@@ -307,7 +307,7 @@ export function Relu() {
           fontSize="10"
           opacity="0.7"
         >
-          no exponential — one comparison
+          no exponential, just one comparison
         </text>
         <text
           x={b.left + (b.right - b.left) / 2}

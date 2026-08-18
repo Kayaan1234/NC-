@@ -68,7 +68,7 @@ function cueElement(body: string): Element {
         type: 'element',
         tagName: 'p',
         properties: { className: ['cue__label'] },
-        children: [{ type: 'text', value: 'To do — not yet filled in' }],
+        children: [{ type: 'text', value: 'To do: not yet filled in' }],
       },
       {
         type: 'element',

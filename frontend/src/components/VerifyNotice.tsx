@@ -13,9 +13,9 @@ export default function VerifyNotice() {
         <h1>Training</h1>
       </div>
       <Message kind="info">
-        <p>Training jobs require a verified email address.</p>
+        <p>Training needs a verified email address first.</p>
         <p>
-          Check your inbox for the verification link, or{' '}
+          Have a look in your inbox for the verification link, or{' '}
           <Link to="/">resend it from your home page</Link>.
         </p>
       </Message>

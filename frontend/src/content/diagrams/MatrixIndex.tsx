@@ -99,7 +99,7 @@ export default function MatrixIndex() {
         values in one flat row, with the cell at row 1 column 2 ringed in both, showing that
         (i, j) becomes the single offset i times columns plus j, here 1 times 3 plus 2 equals 5.
         Second: A, two by three, times B, three by two, gives a two by two result of 58 64 over
-        139 154 — A's column count must equal B's row count. Third: the first three passes of the
+        139 154, and A's column count must equal B's row count. Third: the first three passes of the
         loop written out, showing a hoisted out of the innermost loop and the output cell being
         accumulated into rather than assigned."
     >
@@ -155,7 +155,7 @@ export default function MatrixIndex() {
         C ({C.rows}×{C.cols})
       </Note>
       <Note x={WIDTH / 2} y={LABEL_Y + 16}>
-        A.columns must equal B.rows — the {N} in the middle cancels, the outsides survive
+        A.columns must equal B.rows, the {N} in the middle cancels, the outsides survive
       </Note>
 
       {/* (c) --------------------------------------------------------------- */}
@@ -191,7 +191,7 @@ export default function MatrixIndex() {
         a is read once per j and reused across every k.
       </Note>
       <Note x={18} y={406} anchor="start">
-        out[…] is added to, never assigned — which is why it starts zeroed.
+        out[…] is added to, never assigned, which is why it starts zeroed.
       </Note>
     </Frame>
   )

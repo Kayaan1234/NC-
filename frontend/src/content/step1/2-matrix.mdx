@@ -39,7 +39,7 @@ The concept is challenging to get your head around, so here is a nice diagram to
 
 <Figure
   n={2}
-  caption="The same nine numbers, twice. Above is the matrix as you picture it; below is row_values, the one contiguous run of doubles that actually holds it. The rows sit end to end, so row 1 begins exactly where row 0 stopped — one allocation for the whole thing, where a vector of vectors would need four."
+  caption="The same nine numbers, twice. Above is the matrix as you picture it; below is row_values, the one contiguous run of doubles that actually holds it. The rows sit end to end, so row 1 begins exactly where row 0 stopped. That is one allocation for the whole thing, where a vector of vectors would need four."
 >
   <MatrixFlat />
 </Figure>
@@ -111,7 +111,7 @@ when the vector is flat. Here is a nice diagram to explain what is going on, and
 
 <Figure
   n={3}
-  caption="(a) The cell at row 1, column 2, and the single place it lives in the flat row: an (i, j) collapses to one offset, i * columns + j. (b) The shape rule — A's column count must equal B's row count, and what survives is A.rows × B.columns. (c) The first three passes of the loop with those offsets worked out. Notice that a is read once per j and reused for every k, and that each output cell is added to rather than assigned — which is why the buffer has to start at zero."
+  caption="(a) The cell at row 1, column 2, and the single place it lives in the flat row: an (i, j) collapses to one offset, i * columns + j. (b) The shape rule: A's column count must equal B's row count, and what survives is A.rows × B.columns. (c) The first three passes of the loop with those offsets worked out. Notice that a is read once per j and reused for every k, and that each output cell is added to rather than assigned, which is why the buffer has to start at zero."
 >
   <MatrixIndex />
 </Figure>
@@ -133,7 +133,7 @@ inline void matmul(const Matrix& A, const Matrix& B, Matrix& out) {
     const int n = A.columns;     // shared dimension (== B.rows)
     const int p = B.columns;
     std::fill(out.row_values.begin(), out.row_values.end(), 0.0);  // zero it
-    
+
     for (int i = 0; i < m; ++i){
         for (int j = 0; j < n; ++j) {
             const double a = A.row_values[i * n + j];
@@ -220,7 +220,7 @@ This differs slightly, as ```Matrix &A``` and ```Matrix &B``` are the same shape
 
 <Figure
   n={5}
-  caption="A − B on two matching 2×3 matrices. Every cell is paired with the cell in the same position, and there is no broadcast rule to fall back on — which is exactly why this one demands that both shapes match."
+  caption="A − B on two matching 2×3 matrices. Every cell is paired with the cell in the same position, and there is no broadcast rule to fall back on, which is exactly why this one demands that both shapes match."
 >
   <Subtract />
 </Figure>
@@ -246,7 +246,7 @@ inline Matrix hadamard(const Matrix &A, const Matrix &B){
 
 <Figure
   n={6}
-  caption="The Hadamard product: multiply position by position. Nothing is summed and the shape comes out unchanged, which is the whole difference between this and matmul — the operation it is easiest to mistake it for."
+  caption="The Hadamard product: multiply position by position. Nothing is summed and the shape comes out unchanged, which is the whole difference between this and matmul, the operation it is easiest to mistake it for."
 >
   <Hadamard />
 </Figure>

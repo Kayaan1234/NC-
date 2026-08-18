@@ -123,8 +123,8 @@ export default function LearningRate() {
         large learning rate overshoots the minimum each time and lands further away than it started.
       </title>
       <g fontFamily="var(--font-mono)">
-        <Panel area={TOO_SMALL} ws={descent(1.8, 0.06, 6)} label="lr too small — creeps" />
-        <Panel area={TOO_LARGE} ws={descent(0.35, 1.05, 6)} label="lr too large — overshoots" />
+        <Panel area={TOO_SMALL} ws={descent(1.8, 0.06, 6)} label="lr too small, creeps" />
+        <Panel area={TOO_LARGE} ws={descent(0.35, 1.05, 6)} label="lr too large, overshoots" />
       </g>
     </svg>
   )

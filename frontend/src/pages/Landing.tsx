@@ -32,17 +32,18 @@ export default function Landing() {
       <div className="page-header">
         <h1>NC++</h1>
         <p>
-          Neural networks written from scratch in C++, one rung at a time. Read the source, then
-          run it.
+          Neural networks built from scratch in C++, one rung at a time. Read how each one
+          works, then go and run it yourself.
         </p>
       </div>
 
       <NeuronDemo />
 
       <p className="demo__note">
-        That is a single neuron, trained in your browser just now. This is the same arithmetic as{' '}
-        <code>logistic_regression.hpp</code>, which you can read line by line. Sign in and the same
-        model compiles and runs as real C++ on a worker, with a report you can download.
+        That is a real single neuron, and it just trained itself in your browser while you were
+        reading this. It is the same arithmetic as <code>logistic_regression.hpp</code>, which you
+        can go through line by line. Sign in and the very same model compiles and runs as actual
+        C++ on a worker, with a report to take away at the end.
       </p>
 
       <div className="section">
@@ -63,8 +64,9 @@ export default function Landing() {
           ))}
         </ul>
         <p className="rungs__note">
-          Each rung builds on the one below it. A neuron cannot solve XOR, so Rung 1 adds a hidden
-          layer; hand-written backprop stops scaling, so Rung 2 automates it.
+          Each rung builds on the one below it, and every one of them exists because the rung
+          underneath ran out of road. A single neuron cannot solve XOR, so Rung 1 adds a hidden
+          layer. Writing backprop out by hand stops scaling, so Rung 2 automates it.
         </p>
       </div>
 

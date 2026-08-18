@@ -34,14 +34,14 @@ export default function Home() {
     <div className="container-app">
       <div className="page-header">
         <h1>NC++</h1>
-        <p>Neural network implementations in C++, and the training runs behind them.</p>
+        <p>Neural networks built from scratch in C++. Pick one, read how it works, then set it running.</p>
       </div>
 
       {/* Login succeeds for unverified accounts — the server gates content, not
           the session — so the resend path has to live behind a live session. */}
       {!user.verified && (
         <Message kind="info">
-          <p>Your email isn&rsquo;t verified yet, so training is unavailable.</p>
+          <p>Your email isn&rsquo;t verified yet, so training is switched off for now.</p>
           <p className="msg__actions">
             <button type="button" onClick={resendVerification} disabled={busy}>
               {busy ? 'Sending...' : 'Resend verification email'}
@@ -75,7 +75,7 @@ export default function Home() {
         <Link to="/training" className="model">
           <div className="model__name">Models &rarr;</div>
           <div className="model__desc">
-            Read through a model&rsquo;s source, then run it and download the report.
+            Read through a model&rsquo;s source, then run it for real and take the report away with you.
           </div>
         </Link>
       </div>

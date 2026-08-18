@@ -60,7 +60,7 @@ export default function MatrixFlat() {
         stored row after row, end to end
       </Note>
       <Note x={240} y={BRACE_Y + 42}>
-        row_values — one contiguous block
+        row_values, one contiguous block
       </Note>
     </Frame>
   )

@@ -27,7 +27,7 @@ struct Node {
 ```
 
 Naturally, the next task is the constructor. We initiate the weights to follow a 0 centred gaussian distribution, with a standard
-deviation of $1/\sqrt{n}$ — the reciprocal of the square root of the input size. Dividing by $\sqrt{n}$ is what keeps the sum
+deviation of $1/\sqrt{n}$, which is the reciprocal of the square root of the input size. Dividing by $\sqrt{n}$ is what keeps the sum
 $w \cdot x$ small no matter how many inputs there are, so the sigmoid starts life in its steep, high gradient region rather than
 out on the flat tails where it barely learns at all.
 

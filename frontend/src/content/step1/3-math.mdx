@@ -5,18 +5,20 @@ import { CrossEntropyWorked, SoftmaxWorked } from '../diagrams/Losses'
 
 ## math.hpp
 
-We firstly revisit some activation functions. The non-linearities, as mentioned before, are very important, as without them
-a multi-layered network would simply condense into a linear model. It is worth seeing exactly why, in one line. Stack two
-linear layers with no activation between them and you get
+We are revisiting this file, because an MLP needs a lot more maths than a single neuron did. Before we get into it, lets
+settle the nonlinearity question properly, because I only ever half believed it the first time round. The claim was that
+without an activation function, a stack of layers collapses into one layer. Here is the one line that shows it. Take two
+linear layers with nothing between them:
 
 $$
 W_2(W_1 x + b_1) + b_2 = (W_2 W_1)\,x + (W_2 b_1 + b_2)
 $$
 
-which is one weight matrix and one bias vector: a single layer wearing a costume. Ten layers collapse the same way. The
-function squeezed between them is the only thing that depth actually buys you.
+The right hand side is one weight matrix and one bias vector. Ten layers collapse in exactly the same way, and you can
+keep going forever. So the function we squeeze between the layers is the only thing depth actually buys us. Good, thats
+settled.
 
-Imports first:
+Imports first, for completeness.
 
 ```cpp
 #pragma once
@@ -27,12 +29,13 @@ Imports first:
 #include "matrix.hpp"
 ```
 
-```matrix.hpp``` is in that list because this file works at two different scales. The activations are scalar. We have one
-```double``` in, one ```double``` out and each get handed to ```apply_``` from the
-<LearnLink to="/training/step1/learn/matrix">matrix page</LearnLink> to be run over every cell. The losses cannot work that
-way: a loss has to see a whole batch at once in order to average over it, so those take ```Matrix``` arguments.
+```matrix.hpp``` is in that list because this file works at two different sizes. The activations are scalar, so one
+```double``` goes in and one ```double``` comes out, and each one gets handed to ```apply_``` from the
+<LearnLink to="/training/step1/learn/matrix">matrix page</LearnLink> to be run over every cell. The losses cannot work
+like that, because a loss has to see a whole batch at once in order to average over it, so those take ```Matrix```
+arguments instead.
 
-And lets revisit the already seen activation function.
+Lets revisit the activation function we already know.
 
 ```cpp
 inline double sigmoid(double x){
@@ -43,25 +46,25 @@ inline double sigmoid_deriv(double a){
 }
 ```
 
-Nothing there has changed since the <LearnLink to="/training/step0/learn/math">single neuron's math.hpp</LearnLink>, but one
-detail deserves a little bit of a stop, because it is the convention that **every** derivative on this page follows.
+Nothing there has changed since the <LearnLink to="/training/step0/learn/math">single neuron's math.hpp</LearnLink>, but
+one small thing deserves a stop, because it is the convention every derivative on this page follows.
 
-Look at the parameter name. It is ```a```, not ```x```, and that is not decoration. The derivative of the sigmoid is
-usually written in terms of its input $z$, but it can be rewritten in terms of its own output $a = \sigma(z)$:
+Look at the parameter name. It is ```a``` rather than ```x```, and thats deliberate. We usually write the derivative of
+the sigmoid in terms of its input $z$, but we can rewrite it in terms of its own output $a = \sigma(z)$:
 
 $$
 \sigma'(z) = \sigma(z)\bigl(1 - \sigma(z)\bigr) = a\,(1 - a)
 $$
 
-The forward pass has already computed and stored that $a$, so the backward pass gets its gradient from one multiply and one
-subtract, with no ```std::exp``` anywhere. The expensive part was paid on the way forward and is simply reused on the way
-back.
+The forward pass has already worked out that $a$ and stored it, so the backward pass gets its gradient from one multiply
+and one subtract, with no ```std::exp``` anywhere. We paid the expensive part on the way forward and we are just reusing
+it on the way back.
 
-The trap is that $z$ and $a$ are both a plain ```double```. Passing the pre-activation where the output is expected
-compiles cleanly, runs at full speed, and hands back a wrong number. For the rest of this file, read a parameter named ```a``` as *the
-value that came out*, never *the value that went in*.
+The trap is that $z$ and $a$ are both a plain ```double```. If you pass the pre-activation where the output is expected,
+it compiles cleanly, runs at full speed, and hands you back a wrong number. For the rest of this file, read a parameter
+called ```a``` as the value that came out.
 
-Now lets look at some new nonlinearities. I will introduce them alongside their derivatives as well.
+Now lets look at some new nonlinearities. I will introduce each one alongside its derivative.
 
 ```cpp
 inline double tanh_act(double x){
@@ -79,40 +82,43 @@ $$
 \tanh(x) = \frac{e^{x} - e^{-x}}{e^{x} + e^{-x}} = \frac{e^{2x} - 1}{e^{2x} + 1}
 $$
 
-The value of the function for any $x$ is bounded by $-1$ and $1$. $\tanh$ is also zero-centred (it passes through the
-origin) so a layer's outputs are spread either side of zero rather than being uniformly positive the way sigmoid's are.
-Like sigmoid, $\tanh'(x)$ can be computed straight from the output of $\tanh(x)$, and the quotient rule shows why. Write
-$u = e^{x} - e^{-x}$ and $v = e^{x} + e^{-x}$, and notice that differentiating either one gives you the other: $u' = v$
-and $v' = u$.
+Whatever you feed it, the answer comes out between $-1$ and $1$. It is also zero centred, meaning it passes through the
+origin, so a layer's outputs end up spread either side of zero rather than being uniformly positive the way sigmoid's
+are. Like sigmoid, we can get $\tanh'(x)$ straight from the output of $\tanh(x)$, and the quotient rule shows why. Write
+$u = e^{x} - e^{-x}$ and $v = e^{x} + e^{-x}$, and notice the nice coincidence that differentiating either one gives you
+the other: $u' = v$ and $v' = u$.
 
 $$
 \tanh'(x) = \frac{u'v - uv'}{v^{2}} = \frac{v^{2} - u^{2}}{v^{2}} = 1 - \left(\frac{u}{v}\right)^{2} = 1 - \tanh^{2}(x)
 $$
 
-So with $a = \tanh(z)$ cached from the forward pass, the whole derivative is ```1.0 - a * a```. Note the function's name
-as well: ```tanh_act```, not ```tanh```. ```<cmath>``` brings C's ```::tanh``` into scope, so a function of our own with
-that name and the same ```double``` signature collides with the one that is already there rather than sitting beside it as
-an overload. Naming around the clash is far cheaper than fighting it.
+So with $a = \tanh(z)$ cached from the forward pass, the whole derivative is ```1.0 - a * a```. Have a look at the
+function's name too. It is ```tanh_act``` rather than ```tanh```, and there is a reason for that. ```<cmath>``` brings
+C's ```::tanh``` into scope, so a function of ours with that name and the same ```double``` signature collides with the
+one that is already sitting there instead of politely becoming an overload. Naming around the clash is much cheaper than
+fighting it.
 
 <Figure
   n={9}
-  caption="tanh with its own derivative, and sigmoid's derivative underneath for scale. tanh runs between −1 and 1 through the origin, and 1 − tanh²(x) peaks at exactly 1.0 where the curve is steepest — four times sigmoid's 0.25. Both derivatives fall away towards zero in the tails, which is the part that matters for a deep stack: not how large the peak is, but how completely a saturated unit stops passing anything backwards."
+  caption="tanh with its own derivative, and sigmoid's derivative underneath for scale. tanh runs between −1 and 1 through the origin, and 1 − tanh²(x) peaks at exactly 1.0 where the curve is steepest, four times sigmoid's 0.25. Both derivatives fall away towards zero out in the tails, and that is the part that really matters for a deep stack: a saturated unit stops passing anything backwards at all."
 >
   <Tanh />
 </Figure>
 
-That comparison is the reason why we use $\tanh$ over sigmoid in a hidden layer, and also the reason it is not
-enough on its own. Backprop multiplies one activation derivative into the gradient for every layer it travels back
-through. Sigmoid's derivative peaks at $0.25$, so four sigmoid layers multiply a gradient by at most
-$0.25^{4} \approx 0.004$. This is a 256-fold shrink in the *best* case, before the earliest weights see anything at all. $\tanh$'s derivative peaks at $1.0$, four times
-better, and a unit sitting near the origin passes its gradient back essentially intact. But *peak* is the operative word:
-that maximum is only reached at $z = 0$, and out in the tails where $\lvert a \rvert$ approaches 1, $1 - a^{2}$ approaches
-zero just as surely as sigmoid's does. Let the units saturate, which growing weights will do, and the early layers stop
-learning again. $\tanh$ moves the vanishing gradient problem but it does not remove it. That motivates the next activation
-function.
+That comparison is why we reach for $\tanh$ over sigmoid in a hidden layer, and it is also why $\tanh$ on its own is not
+the end of the story. Backprop multiplies one activation derivative into the gradient for every single layer it travels
+back through. Sigmoid's derivative peaks at $0.25$, so four sigmoid layers multiply a gradient by at most $0.25^{4}
+\approx 0.004$. That is a 256-fold shrink in the _best_ case, before the earliest weights have seen anything at all.
+$\tanh$'s derivative peaks at $1.0$, four times better, and a unit sitting near the origin passes its gradient back
+pretty much intact.
 
-Rectified linear unit, or ```ReLU```, is the simplest of the three and also the most common choice in hidden layers. It is
-remarkably easy to understand: if $z$ is positive we output $z$, and if $z$ is negative or zero we output $0$. No
+The catch is the word _peak_. We only get that maximum at $z = 0$, and out in the tails where $\lvert a \rvert$
+approaches 1, $1 - a^{2}$ heads for zero just as surely as sigmoid's does. Let the units saturate, which growing weights
+will happily do, and the early layers go quiet again. So $\tanh$ moves the vanishing gradient problem along a bit without
+getting rid of it, and that is what motivates the next activation function.
+
+Rectified linear unit, or ```ReLU```, is the simplest of the three and also the most common choice in hidden layers. It
+is remarkably easy to understand: if $z$ is positive we output $z$, and if $z$ is negative or zero we output $0$. No
 exponentials anywhere, just one comparison.
 
 $$
@@ -132,70 +138,72 @@ inline double relu_deriv(double a){
 }
 ```
 
-The take-the-output convention survives here for a slightly different reason than it does for the other two. There is no
-identity rewriting $\mathrm{relu}'$ in terms of $a$; it is simply that ReLU preserves the one fact the derivative needs.
-The output is positive exactly when the input was, so testing $a$ answers the same question as testing $z$ would.
+The take-the-output convention survives here for a slightly different reason than with the other two. There is no
+identity that rewrites $\mathrm{relu}'$ in terms of $a$. What happens is that ReLU preserves the one fact the derivative
+cares about, since the output is positive exactly when the input was, so testing $a$ answers the same question testing
+$z$ would have.
 
-Strictly, the derivative does not exist at $z = 0$: the slope coming in from the left is 0, the slope going out to the
-right is 1, and there is no single tangent at the corner. The code returns 0 there, which is what most libraries do. A
-pre-activation landing exactly on 0.0 is an event no real training run ever notices.
+Strictly speaking the derivative does not exist at $z = 0$. The slope coming in from the left is 0, the slope going out
+to the right is 1, and there is no single tangent at the corner. The code returns 0 there, which is what most libraries
+do, and honestly a pre-activation landing exactly on 0.0 is an event no real training run will ever notice.
 
 <Figure
   n={10}
-  caption="ReLU and its derivative, drawn separately because their vertical scales have nothing in common. (a) is the identity for positive inputs and flat zero elsewhere, with a corner — not a curve — at the origin. (b) is the derivative: exactly 0 or exactly 1, never anything between. The filled dot at the origin and the hollow one above it record the convention the code picks at the one input where the maths declines to answer."
+  caption="ReLU and its derivative, drawn as two separate plots because their vertical scales have nothing in common. (a) is the identity for positive inputs and flat zero everywhere else, with a corner at the origin rather than a curve. (b) is the derivative, which is only ever exactly 0 or exactly 1. The filled dot at the origin and the hollow one above it record the convention the code picks at the one input where the maths declines to answer."
 >
   <Relu />
 </Figure>
 
-There are some slight variations on this activation function, and it is that flat half they all attack. Because
-$\mathrm{relu}'(z) = 0$ for every $z \le 0$, a unit whose pre-activation is negative for every sample in the dataset
-receives exactly zero gradient, forever, and it cannot recover, because the update that would move it is itself multiplied by
-that zero. That is a **dead ReLU**. To name two of the variations: Leaky ReLU replaces the flat half with a shallow slope,
-usually $0.01z$, so a negative unit still receives something; ELU, the *exponential linear unit*, uses $\alpha(e^{z} - 1)$
-below zero instead, which is smooth at the origin and levels off at $-\alpha$ rather than diving. Neither ships in this
-file. ReLU is what Step1 uses but I think the names are worth knowing, and now so is the problem they were invented to solve.
+There are a few variations on ReLU floating about, and it is that flat half they all go after. Because
+$\mathrm{relu}'(z) = 0$ for every $z \le 0$, a unit whose pre-activation is negative for every sample in the dataset gets
+exactly zero gradient, forever, and it can never recover, because the update that would move it is itself multiplied by
+that zero. This is called a **dead ReLU**. To name two of the variations: Leaky ReLU swaps the flat half for a shallow
+slope, usually $0.01z$, so a negative unit still receives something, and ELU, the _exponential linear unit_, uses
+$\alpha(e^{z} - 1)$ below zero, which is smooth at the origin and levels off at $-\alpha$ rather than diving. Neither of
+them ships in this file, since Step1 uses plain ReLU, but I think the names are worth knowing and now so is the problem
+they were invented to solve.
 
-Next function is a challenging one, so I think its appropriate to explain in _somewhat_ simple English. Imagine at the
-final layer, you have a bunch of raw numbers that are difficult to interpret. Some are high, some are low, some are even
-negative. Those raw scores have a name — **logits** — and your job is to turn each one into the probability your model
-assigns to that option being the true label. Thats where softmax comes in. Softmax goes into your output cells, and
-elegantly transforms them into numbers between 0 and 1, and ensures all numbers in that particular output vector sum to
-1.0, thus giving you a probability distribution.
+The next function is a challenging one, so I think its appropriate to explain in _somewhat_ simple English. Imagine that
+at the final layer you have a bunch of raw numbers that are difficult to interpret. Some are high, some are low, some are
+even negative. Those raw scores have a name, **logits**, and your job is to turn each one into the probability your model
+assigns to that option being the true label. Thats where softmax comes in. Softmax goes into your output cells and
+elegantly transforms them into numbers between 0 and 1, and makes sure everything in that particular output vector sums
+to 1.0, giving you a proper probability distribution.
 
 $$
 \mathrm{softmax}(z)_j = \frac{e^{z_j}}{\sum_{k=1}^{C} e^{z_k}}
 $$
 
 The function in this file is a numerically stable version of that, and the outputs are identical. You firstly translate
-every value in the row by subtracting the largest value in that row. Then for each of these new values, raise $e$ to the
-power of it, which makes every one of them positive. Then divide each through by the total of all of them, to get your
-probability.
+every value in the row by subtracting the largest value in that row. Then for each of these new values, you raise $e$ to
+the power of it, which makes every one of them positive. Then you divide each one through by the total of all of them, to
+get your probability.
 
-Subtracting the maximum looks like it ought to change the answer, and it does not — that is the whole trick. The same
-constant $c$ appears in every exponential on the top and on the bottom, so it factors straight back out:
+Subtracting the maximum looks like it ought to change the answer, and the fact that it does not is the whole trick. The
+same constant $c$ turns up in every exponential on the top and on the bottom, so it factors straight back out:
 
 $$
 \frac{e^{z_j - c}}{\sum_k e^{z_k - c}} = \frac{e^{-c}\,e^{z_j}}{e^{-c}\sum_k e^{z_k}} = \frac{e^{z_j}}{\sum_k e^{z_k}}
 $$
 
-Any $c$ at all would cancel. Choosing $c = \max_k z_k$ is what makes it *useful*: the largest exponent becomes $e^{0} = 1$
-and every other one is smaller, so no term can overflow. Without the shift, a logit of 800 — which a diverging run reaches
-without much effort — sends ```std::exp``` to ```inf```, and ```inf / inf``` is ```NaN```. The loss becomes NaN, every
-gradient computed from it becomes NaN, every weight becomes NaN, and the model is destroyed in a single step, silently.
-Two lines of shifting buy immunity from that.
+Any $c$ at all would cancel. Choosing $c = \max_k z_k$ is what makes it _useful_, because the largest exponent then
+becomes $e^{0} = 1$ and every other one is smaller, so nothing can overflow. Skip the shift and a logit of 800, which a
+diverging run reaches without much effort, sends ```std::exp``` to ```inf```, and ```inf / inf``` is ```NaN```. The loss
+becomes NaN, every gradient computed from it becomes NaN, every weight becomes NaN, and the model is destroyed in a
+single step, silently. Two lines of shifting buy us immunity from all of that.
 
 <Figure
   n={11}
-  caption="One row of four logits taken through the function, stage by stage. Subtracting the row maximum pins the largest exponent at exp(0) = 1 and drives every other one below it, so the sum can neither overflow nor be dominated by a single enormous term. The last row is a genuine probability distribution: four numbers in (0, 1) that total 1. Every value shown is computed by the figure from the row above it, not typed in."
+  caption="One row of four logits taken through the function, stage by stage. Subtracting the row maximum pins the largest exponent at exp(0) = 1 and drives every other one below it, so the sum can neither overflow nor be dominated by one enormous term. The last row is a genuine probability distribution: four numbers in (0, 1) that total 1. Every value shown is worked out by the figure from the row above it rather than typed in."
 >
   <SoftmaxWorked />
 </Figure>
 
-The code takes matrices as parameters. This is because we are working with batches — one row per sample, one column per
-class — and each row is turned into its own distribution independently. Don't worry about this, we will work it through in
-the later files. Two details in the signature are worth a look. It returns ```Matrix&``` and mutates its argument, so a
-softmax over a batch allocates nothing at all; and it walks the row with ```base = i * cols```, the flat indexing from
-```matrix.hpp```.
+The code takes matrices as parameters, because we are working with batches now. One row per sample, one column per class,
+and each row gets turned into its own distribution independently of the others. Do not worry about the batch part yet, we
+will work through it properly in the later files. Two details in the signature are worth a look. It returns ```Matrix&```
+and mutates its argument, so a softmax over a batch allocates nothing at all, and it walks each row with
+```base = i * cols```, which is the flat indexing from ```matrix.hpp```.
 
 ```cpp
 inline Matrix& softmax(Matrix &M){
@@ -227,10 +235,10 @@ inline Matrix& softmax(Matrix &M){
 }
 ```
 
-The next two functions will be familiar. ```binary_cross_entropy_loss``` and ```cross_entropy_loss``` are the chosen loss
-functions at the final layer. ```cross_entropy_loss``` collects loss across many mutually exclusive classes, as opposed to
-```binary_cross_entropy_loss```, which only considers two. Written out as the code computes them, over a batch of $N$ rows
-and $C$ columns:
+The next two functions will look familiar. ```binary_cross_entropy_loss``` and ```cross_entropy_loss``` are our chosen
+loss functions at the final layer. ```cross_entropy_loss``` collects loss across many mutually exclusive classes, whereas
+```binary_cross_entropy_loss``` only ever considers two. Written out the way the code computes them, over a batch of $N$
+rows and $C$ columns:
 
 $$
 L_{\mathrm{CE}} = -\frac{1}{N}\sum_{i=1}^{N}\sum_{j=1}^{C} y_{ij}\log p_{ij}
@@ -241,21 +249,21 @@ L_{\mathrm{BCE}} = -\frac{1}{NC}\sum_{i=1}^{N}\sum_{j=1}^{C}
 \Bigl[\,y_{ij}\log p_{ij} + (1 - y_{ij})\log(1 - p_{ij})\,\Bigr]
 $$
 
-Read those two denominators carefully, because they differ and the difference is deliberate. Cross-entropy treats each
-**row** as a single categorical answer: the row is one probability distribution, exactly one class is correct, so a row
-contributes one number and averaging over the batch means dividing by $N$. BCE treats each **cell** as its own independent
-yes/no question — $C$ separate coin flips per sample, any number of which may be 1 — so the batch contains $NC$ answers
-and it divides by $NC$. Take one function's formula and the other's normalisation and you are wrong by a factor of $C$,
-which looks exactly like a badly chosen learning rate and is much harder to find.
+Read those two denominators carefully, because they differ on purpose and it caught me out. Cross-entropy treats each
+**row** as one categorical answer. The row is a single probability distribution, exactly one class is correct, so a row
+contributes one number and averaging over the batch means dividing by $N$. BCE treats each **cell** as its own
+independent yes or no question, so that is $C$ separate coin flips per sample, any number of which may be 1, which means
+the batch contains $NC$ answers and it divides by $NC$. Take one function's formula and the other's normalisation and
+you are out by a factor of $C$, which looks exactly like a badly chosen learning rate and is a lot harder to find.
 
-Both clamp with ```eps = 1e-7``` before taking a logarithm, because $\log(0)$ is $-\infty$ and one confident, wrong
-prediction would otherwise take the entire batch's loss to infinity. BCE clamps at both ends, into $[\varepsilon,\,
-1 - \varepsilon]$, because it evaluates $\log(1 - p)$ as well as $\log(p)$ and can therefore be destroyed from either
-side. CE only ever takes $\log(p)$, so a floor is all it needs.
+Both of them clamp with ```eps = 1e-7``` before taking a logarithm, because $\log(0)$ is $-\infty$ and one confident,
+wrong prediction would otherwise send the entire batch's loss to infinity. BCE clamps at both ends, into $[\varepsilon,\,
+1 - \varepsilon]$, because it evaluates $\log(1 - p)$ as well as $\log(p)$ and can be destroyed from either side. CE only
+ever takes $\log(p)$, so a floor is all it needs.
 
 <Figure
   n={12}
-  caption="Cross-entropy over a batch of two samples and three classes. Because the truth rows are one-hot, every term where y = 0 contributes 0 × log p = 0, and each sample's loss collapses to −log of the single ringed probability: the model is scored purely on how much belief it put on the right answer. The two per-sample losses are then averaged over the batch, which is the 1/N in the formula and the division by pred.rows in the code."
+  caption="Cross-entropy over a batch of two samples and three classes. Because the truth rows are one-hot, every term where y = 0 contributes 0 × log p = 0, and each sample's loss collapses to −log of the single ringed probability. The model is scored purely on how much belief it put on the right answer. The two per-sample losses are then averaged over the batch, which is the 1/N in the formula and the division by pred.rows in the code."
 >
   <CrossEntropyWorked />
 </Figure>
@@ -296,25 +304,26 @@ inline double cross_entropy_loss(const Matrix &pred, const Matrix &truth){
 }
 ```
 
-Next we look at the gradient function for ```cross_entropy_loss```. Observe that we use our in-place ```Matrix``` helper
-```scale_```, as this avoids creating new ```Matrix``` objects unnecessarily. The important thing about this function is
-what it differentiates with respect to: not the probabilities, but the **logits** — the pre-softmax scores.
+Next up is the gradient function for ```cross_entropy_loss```. Notice that we use our in-place ```Matrix``` helper
+```scale_```, so we avoid creating new ```Matrix``` objects we do not need. The important thing about this function is
+what it differentiates with respect to. It reaches all the way back past the softmax to the **logits**, the raw scores
+the output layer actually produced.
 
 $$
 \frac{\partial L}{\partial z_{ij}} = \frac{p_{ij} - y_{ij}}{N}
 $$
 
 That is far simpler than it has any right to be. Getting there honestly means differentiating the loss back through the
-softmax, and the softmax's Jacobian is not a pleasant object: every output depends on every input, because they all share
-the one denominator. What happens is that the loss derivative $-y/p$ and that Jacobian cancel almost entirely, and all
-that survives is $p - y$. It is one of the tidiest results in the subject, and it is exactly why softmax and cross-entropy
-are always used as a pair: apart they are awkward, together their derivative is a subtraction. The same cancellation
-happens for sigmoid paired with BCE, so this is a general pattern rather than a fluke of this one case — but note that
-this function divides by $N$, matching ```cross_entropy_loss``` and *not* BCE's $NC$, so it is not a drop-in gradient for
-the BCE above.
+softmax, and the softmax's Jacobian is not a pleasant object, because every output depends on every input thanks to that
+shared denominator. What happens is that the loss derivative $-y/p$ and that Jacobian cancel almost entirely, and all
+that survives is $p - y$. It is one of the tidiest results in the whole subject, and it is exactly why softmax and
+cross-entropy are always used as a pair. Apart they are awkward, and together their derivative is a subtraction. The same
+cancellation happens for sigmoid paired with BCE, so this is a general pattern rather than a fluke of this one case. Do
+watch the denominator though. This function divides by $N$, which matches ```cross_entropy_loss```, while BCE divides by
+$NC$, so pointing this gradient at the BCE above leaves you out by a factor of $C$.
 
-The $1/N$ is not optional, either. A loss that is averaged over the batch needs a gradient that is averaged over the batch
-too, otherwise the size of every weight update quietly scales with however many samples happened to be in it.
+The $1/N$ is not optional either. A loss that is averaged over the batch needs a gradient that is averaged over the batch
+too, otherwise the size of every weight update quietly scales with however many samples happened to land in it.
 
 ```cpp
 inline Matrix cross_entropy_loss_grad(const Matrix &pred, const Matrix &truth){
@@ -327,18 +336,19 @@ inline Matrix cross_entropy_loss_grad(const Matrix &pred, const Matrix &truth){
 }
 ```
 
-Finally some wrappers that combine these functions — and they exist for a real reason, not for tidiness.
+Finally some wrappers that combine these functions, and they exist for a real reason rather than for tidiness.
 
-The output layer of the MLP hands back raw logits. Its activation is ```LINEAR```, and ```MLP.hpp``` refuses to be
-constructed any other way. But ```cross_entropy_loss``` and ```cross_entropy_loss_grad``` both assume their ```pred```
-argument is *already* a probability distribution — one takes the logarithm of it, the other returns the fused
-$(p - y)/N$. Hand either one a matrix of logits and it will return a number, raise nothing, and be wrong. The wrappers
-close that gap by running the softmax first, on a copy, since ```softmax``` mutates what it is given.
+The output layer of the MLP hands back raw logits. Its activation is ```LINEAR```, and ```MLP.hpp``` flatly refuses to be
+constructed any other way, which we will see shortly. But ```cross_entropy_loss``` and ```cross_entropy_loss_grad``` both
+assume their ```pred``` argument is _already_ a probability distribution, since one takes the logarithm of it and the
+other returns the fused $(p - y)/N$. Hand either one a matrix of logits and it will happily return a number, raise
+nothing, and be wrong. The wrappers close that gap by running the softmax first, on a copy, since ```softmax``` mutates
+whatever it is given.
 
-They are also a **matched pair** in the calculus sense: ```softmax_cross_entropy_loss_grad(z, y)``` genuinely is the
+They are also a **matched pair** in the calculus sense, so ```softmax_cross_entropy_loss_grad(z, y)``` genuinely is the
 derivative of ```softmax_cross_entropy_loss(z, y)``` with respect to ```z```. That is precisely what a numerical gradient
-check needs — nudge one logit, re-evaluate the loss, compare the finite difference against the analytic gradient — and it
-is what ```grad_check.hpp``` gets handed for the first of its two checks, on a ```LINEAR``` layer.
+check needs, where you nudge one logit, re-evaluate the loss, and compare the finite difference against the analytic
+gradient. It is what ```grad_check.hpp``` gets handed for the first of its two checks, on a ```LINEAR``` layer.
 
 ```cpp
 inline double softmax_cross_entropy_loss(const Matrix& logits, const Matrix& truth){
@@ -353,7 +363,7 @@ inline Matrix softmax_cross_entropy_loss_grad(const Matrix& logits, const Matrix
 }
 ```
 
-And lastly, an alternative loss function; mean squared error.
+And lastly, an alternative loss function, mean squared error.
 
 $$
 L_{\mathrm{MSE}} = \frac{1}{N}\sum_{i=1}^{N}\sum_{j=1}^{C}\bigl(a_{ij} - y_{ij}\bigr)^{2}
@@ -361,20 +371,20 @@ L_{\mathrm{MSE}} = \frac{1}{N}\sum_{i=1}^{N}\sum_{j=1}^{C}\bigl(a_{ij} - y_{ij}\
 \frac{\partial L}{\partial a_{ij}} = \frac{2\,\bigl(a_{ij} - y_{ij}\bigr)}{N}
 $$
 
-Read that normalisation carefully too, because the name lies a little: the sum runs over every element, but the division
-is by ```pred.rows``` alone. It is a *sum* over one sample's outputs and a *mean* over the batch — the same convention as
-the cross-entropy above, chosen so that the two are interchangeable. Differentiate the textbook $\frac{1}{NC}\sum(a-y)^2$
-instead and your answer will be a factor of $C$ away from what ```mse_loss_grad``` returns, and you will conclude the
-gradient check is broken when it is the arithmetic that is.
+Read that normalisation carefully too, because the name tells a small lie. The sum runs over every element, and the
+division is by ```pred.rows``` alone. So it sums over one sample's outputs and takes a mean over the batch, which is the
+same convention as the cross-entropy above, chosen so the two are interchangeable. Differentiate the textbook
+$\frac{1}{NC}\sum(a-y)^2$ instead and your answer will be a factor of $C$ away from what ```mse_loss_grad``` returns, and
+you will conclude the gradient check is broken when it is your arithmetic that is.
 
-The deeper difference is *what* the derivative is taken with respect to. ```mse_loss_grad``` returns
-$\partial L / \partial a$: a plain derivative with respect to the network's output, with no activation folded into it.
-```cross_entropy_loss_grad``` returns $\partial L / \partial z$, with the softmax already absorbed. That is why both are
-here. An honest $\partial L / \partial a$ can be handed to a **nonlinear** output layer, which will then multiply by the
-activation derivative itself on the way back — the ```tanh_deriv``` / ```relu_deriv``` path, and the Hadamard product that
-applies it. Softmax and cross-entropy only ever exercise the ```LINEAR``` case, where that derivative is 1 and a bug in
-that path stays invisible. That is exactly why the second gradient check is MSE against a ```TANH``` layer: between them
-the two checks cover the code that neither pair could reach alone.
+The deeper difference is _what_ each derivative is taken with respect to. ```mse_loss_grad``` returns
+$\partial L / \partial a$, a plain derivative with respect to the network's output with no activation folded into it.
+```cross_entropy_loss_grad``` returns $\partial L / \partial z$, with the softmax already absorbed. That is why we keep
+both. An honest $\partial L / \partial a$ can be handed to a **nonlinear** output layer, which will then multiply by the
+activation derivative itself on the way back, using the ```tanh_deriv``` and ```relu_deriv``` path and the Hadamard
+product that applies it. Softmax and cross-entropy only ever exercise the ```LINEAR``` case, where that derivative is 1
+and a bug in that path stays invisible. It is exactly why the second gradient check pairs MSE with a ```TANH``` layer.
+Between them the two checks cover code that neither pair could reach on its own.
 
 ```cpp
 inline double mse_loss(const Matrix &pred, const Matrix &truth){
@@ -399,6 +409,6 @@ inline Matrix mse_loss_grad(const Matrix &pred, const Matrix &truth){
 ```
 
 That is the whole of ```math.hpp```: three activations with their derivatives, one softmax, four losses and their
-gradients. Every one of them is a function of plain numbers or of a ```Matrix```, and none of them knows that a neural
-network exists. The next file is where they start to be assembled into one — a layer is a weight matrix, a bias, and one
-of these activations chosen from an enum.
+gradients. Every one of them is a function of plain numbers or of a ```Matrix```, and none of them has any idea a neural
+network exists. The next file is where we start assembling them into one, because a layer turns out to be a weight
+matrix, a bias, and one of these activations picked out of an enum.

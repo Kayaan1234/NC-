@@ -175,7 +175,7 @@ export default function Training() {
     <div className="container-app">
       <div className="page-header">
         <h1>Training</h1>
-        <p>Pick a model to read about and run. One job at a time.</p>
+        <p>Pick a model, read how it works, then set it running. One job at a time.</p>
       </div>
 
       {loading && <p className="page-status">Loading...</p>}
@@ -184,7 +184,7 @@ export default function Training() {
       <div className="section">
         <h2 className="section__title">Models</h2>
         {!loading && models.length === 0 ? (
-          <p className="empty">No models are available to train yet.</p>
+          <p className="empty">Nothing available to train just yet.</p>
         ) : (
           <ul className="model-list">
             {models.map((m) => (

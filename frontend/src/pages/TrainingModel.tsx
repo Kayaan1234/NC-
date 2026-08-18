@@ -158,7 +158,7 @@ function RunForm({ model }: { model: ModelSpec }) {
           </button>
         </div>
         <p className="card__note">
-          One job at a time. Values outside the listed ranges are rejected by the server.
+          One job at a time. Anything outside the listed ranges gets turned away by the server.
         </p>
         {error && <Message kind="error">{error}</Message>}
       </form>

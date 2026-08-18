@@ -142,7 +142,7 @@ function ChangeEmail() {
         </button>
       </div>
       <p className="card__note">
-        Changing your email marks it unverified until you use the new link. Once per day.
+        Changing your email marks it unverified until you follow the new link. Once a day, at most.
       </p>
       {result && <Message kind="ok">{result}</Message>}
       {error && <Message kind="error">{error}</Message>}

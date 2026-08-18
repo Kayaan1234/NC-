@@ -14,7 +14,8 @@
 // 1.55. A stage that shows a running total has to print enough digits for the
 // total to be checkable.
 
-import { Frame, Grid, Note, gridHeight, gridWidth, m, type M } from './matrix'
+import { Frame, Grid, Note } from './matrix'
+import { gridHeight, gridWidth, m, type M } from './matrix-geometry'
 
 const WIDTH = 480
 const D3 = (v: number) => v.toFixed(3)
@@ -194,7 +195,7 @@ export function CrossEntropyWorked() {
         {`mean over the batch: (${ROW_LOSSES.map(D3).join(' + ')}) ÷ ${PRED.rows} = ${D3(MEAN_LOSS)}`}
       </Note>
       <Note x={WIDTH / 2} y={142}>
-        only the ringed cells contribute — every other term is 0 × log p
+        only the ringed cells contribute, every other term is 0 × log p
       </Note>
     </Frame>
   )

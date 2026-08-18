@@ -312,7 +312,7 @@ export function XorBoundary() {
 
           <path d={`M${TABLE_X} 186H${TABLE_X + 132}`} opacity="0.4" />
           <text x={TABLE_X} y={208} fill="currentColor" stroke="none">
-            3 of 4 — 75%
+            3 of 4, so 75%
           </text>
         </g>
       </g>
