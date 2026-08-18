@@ -1,0 +1,31 @@
+# Coverage config for the test suite (see pytest.ini for the runner config).
+
+[run]
+# No `source` here on purpose — pytest-cov's `--cov=backend` owns that. Setting
+# both makes coverage.py also report on files it never imported, which is the
+# usual cause of a total that differs between a local run and a fresh CI
+# checkout.
+branch = true
+omit =
+    # The tests themselves. Including them inflates the total by several points
+    # and hides which application code is actually uncovered.
+    backend/tests/*
+    # Generated/vendored migration scaffolding. The migrations ARE exercised —
+    # the suite builds its schema by running them — but line coverage of an
+    # upgrade script measures nothing useful.
+    backend/alembic/*
+    # Import-time only; nothing to exercise.
+    backend/__init__.py
+
+[report]
+show_missing = true
+skip_covered = false
+exclude_also =
+    # The worker's and drainer's unbounded service loops. Every decision they
+    # make lives in the sub-functions, which ARE covered; driving the loops
+    # themselves would mean signal handlers and sleeps in the test process.
+    if __name__ == .__main__.:
+    def main\(\)
+    def run\(should_stop
+    # Defensive branches that only fire on a dropped DB connection.
+    except OSError:

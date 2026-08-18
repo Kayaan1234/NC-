@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { api, refreshSession, setAccessToken } from './api'
 import type { User } from './api'
@@ -17,9 +17,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
-  async function loadUser() {
+  // Every function here is referentially stable, and that is a contract rather
+  // than a micro-optimisation: `reload` is read from this context into a
+  // useEffect dependency array (VerifyEmail.tsx), so a fresh identity on each
+  // render would re-fire that effect on every unrelated auth state change.
+  const loadUser = useCallback(async () => {
     setUser(await api<User>('/users/me', { method: 'GET', auth: true }))
-  }
+  }, [])
 
   // Session restore on mount: there's no readable token to check, so the only
   // way to know whether we're logged in is to ask the refresh cookie. A failure
@@ -36,15 +40,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })()
   }, [])
 
-  async function login(email: string, password: string) {
-    const session = await api<{ access_token: string }>('/auth/login', {
-      body: { email, password },
-    })
-    setAccessToken(session.access_token)
-    await loadUser()
-  }
+  const login = useCallback(
+    async (email: string, password: string) => {
+      const session = await api<{ access_token: string }>('/auth/login', {
+        body: { email, password },
+      })
+      setAccessToken(session.access_token)
+      await loadUser()
+    },
+    [loadUser],
+  )
 
-  async function logout() {
+  const logout = useCallback(async () => {
     // Authenticated by the refresh cookie, not the Bearer token, and idempotent
     // server-side — so this is worth attempting even if our token is stale. Drop
     // local state regardless of the outcome.
@@ -54,13 +61,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAccessToken(null)
       setUser(null)
     }
-  }
+  }, [])
 
-  return (
-    <AuthContext.Provider value={{ user, loading, login, logout, reload: loadUser }}>
-      {children}
-    </AuthContext.Provider>
+  // Without this the object is new on every render, so every useAuth() consumer
+  // re-renders whenever the provider does — which is the whole tree, since the
+  // provider sits above the router.
+  const value = useMemo(
+    () => ({ user, loading, login, logout, reload: loadUser }),
+    [user, loading, login, logout, loadUser],
   )
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
 export function useAuth(): AuthValue {

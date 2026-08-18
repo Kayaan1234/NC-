@@ -12,6 +12,24 @@ import ForgotPassword from './pages/ForgotPassword'
 import PasswordReset from './pages/PasswordReset'
 import VerifyEmail from './pages/VerifyEmail'
 import Privacy from './pages/Privacy'
+import Terms from './pages/Terms'
+import Landing from './pages/Landing'
+
+// `/` is the one route that serves two pages: the dashboard to a signed-in user,
+// and the public landing page to everyone else. Branching here rather than moving
+// Home to its own path keeps every other route and the `*` redirect untouched.
+//
+// The `loading` case deliberately does NOT get the "Restoring session..." holding
+// text the gates below use. That flag is true for one /auth/refresh round-trip on
+// every cold load, and blocking on it would show a stranger a status message
+// before they saw the site — and strangers are the entire audience for this page.
+// The landing page is static, so it paints immediately and gives way to Home in
+// the rarer case that a session turns out to exist.
+function HomeOrLanding() {
+  const { user, loading } = useAuth()
+  if (loading) return <Landing />
+  return user ? <Home /> : <Landing />
+}
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -36,14 +54,8 @@ export default function App() {
           including the public ones. Pages set their own width by picking a
           container class — see components/Layout.tsx. */}
       <Route element={<Layout />}>
-        <Route
-          path="/"
-          element={
-            <RequireAuth>
-              <Home />
-            </RequireAuth>
-          }
-        />
+        {/* Public: the landing page logged out, the dashboard logged in. */}
+        <Route path="/" element={<HomeOrLanding />} />
         <Route
           path="/account"
           element={
@@ -125,8 +137,15 @@ export default function App() {
             logged in — so these two are not PublicOnly. */}
         <Route path="/password-reset" element={<PasswordReset />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
-        {/* Public legal page: readable logged in OR out, so no gate wrapper. */}
+        {/* Public legal pages: readable logged in OR out, so no gate wrapper.
+            /terms in particular has to be reachable *before* registering, since
+            that is where the register form says you agree to it. */}
         <Route path="/privacy" element={<Privacy />} />
+        <Route path="/terms" element={<Terms />} />
+        {/* Unknown URLs go to `/`, which now means a logged-out visitor who
+            mistypes a path lands on the landing page rather than on the login
+            form. That is the right default for a public site, and is why there is
+            still no dedicated 404 route. */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

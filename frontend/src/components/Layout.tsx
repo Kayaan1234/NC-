@@ -29,16 +29,27 @@ export default function Layout() {
         <Link to="/" className="topbar__brand">
           NC++
         </Link>
-        {/* Logged out, this is empty on purpose: /login and /register are
-            PublicOnly routes, so a bar link would only ever point at the page
-            you are already looking at. Those two pages cross-link each other. */}
-        {user && (
-          <nav className="topbar__nav">
+        {/* This used to be empty when logged out, on the grounds that /login and
+            /register were the only public pages and a bar link would just point at
+            the page you were already on. That stopped being true when / became the
+            public landing page: a visitor reading it is on neither, and the way in
+            has to be somewhere. */}
+        {/* Named because a learn page puts three navigation landmarks on screen
+            at once (this one, the section rail, and the prev/next pager). An
+            unnamed landmark is announced as a bare "navigation", which makes the
+            rotor a list of identical entries. */}
+        {user ? (
+          <nav className="topbar__nav" aria-label="Main">
             <NavLink to="/training">training</NavLink>
             <NavLink to="/account">account</NavLink>
             <button type="button" className="topbar__link" onClick={onLogout}>
               log out
             </button>
+          </nav>
+        ) : (
+          <nav className="topbar__nav" aria-label="Main">
+            <NavLink to="/login">log in</NavLink>
+            <NavLink to="/register">register</NavLink>
           </nav>
         )}
       </header>
@@ -49,6 +60,7 @@ export default function Layout() {
 
       <footer className="footer">
         <Link to="/privacy">Privacy Policy</Link>
+        <Link to="/terms">Terms of Service</Link>
       </footer>
     </div>
   )

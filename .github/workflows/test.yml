@@ -1,0 +1,145 @@
+name: tests
+
+# Unit + integration run on every push and PR; the E2E journeys run nightly (and
+# on demand), which is the cadence the plan calls for. react-doctor.yml is left
+# alone — it is advisory-only and does no build, lint, typecheck or test.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  schedule:
+    # 03:00 UTC daily, for the E2E job below.
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # The suite refuses to run against a database whose name doesn't end in _test
+  # (see the repo-root conftest.py), which is what stops it ever truncating a
+  # real one.
+  TEST_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/ncplusplus_test
+
+jobs:
+  backend:
+    # Python 3.11 to match both Docker runtime stages. The local .venv is 3.13;
+    # CI follows production, not the developer's laptop.
+    name: backend (unit + integration)
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule'
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ncplusplus_test
+        ports:
+          - 5432:5432
+        # Without this the first connection can land before the server is
+        # accepting them, which reads as a flaky suite rather than a race.
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements-dev.txt
+
+      - name: Run unit + integration tests
+        # The E2E journeys are excluded here and run in the nightly job.
+        run: >-
+          pytest -m "not e2e"
+          --cov=backend
+          --cov-report=term-missing
+          --cov-report=xml
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: coverage.xml
+          if-no-files-found: ignore
+
+  frontend:
+    # Node 22 to match the Dockerfile's build stage (local dev is on 20).
+    name: frontend (typecheck + unit)
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule'
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      # Until now `tsc` only ever ran inside `npm run build` during a Docker
+      # build, so a type error could reach main unnoticed.
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Run unit tests
+        run: npm test
+
+  e2e:
+    name: e2e journeys
+    runs-on: ubuntu-latest
+    # Slower and broader than the per-push tiers, so: nightly plus on demand.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ncplusplus_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements-dev.txt
+
+      - name: Run end-to-end journeys
+        run: pytest -m e2e

@@ -1,0 +1,7 @@
+# Test-only dependencies (kept out of the runtime image — the Dockerfile's
+# `deps` stage installs requirements.lock.txt, never this file).
+-r requirements.txt
+pytest
+httpx                # TestClient transport (a FastAPI extra, pinned here for tests)
+pytest-cov           # per-area coverage targets; see the suite's coverage table
+pytest-randomly      # shuffles test order, so shared-state bleed fails loudly

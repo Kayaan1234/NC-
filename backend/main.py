@@ -53,7 +53,16 @@ def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSO
 # surface here rather than as a 422 the user can't explain (services/params.py).
 check_registry()
 
-app = FastAPI()
+# Docs are opt-in (settings.DOCS_ENABLED, default False). Passing None for these
+# three URLs is how FastAPI unregisters the built-in /docs, /redoc and the OpenAPI
+# schema itself — without the last one the schema stays public and a CDN-hosted
+# renderer elsewhere could still read it. /scalar is registered conditionally at
+# the bottom of this file for the same reason.
+app = FastAPI(
+    docs_url="/docs" if settings.DOCS_ENABLED else None,
+    redoc_url="/redoc" if settings.DOCS_ENABLED else None,
+    openapi_url="/openapi.json" if settings.DOCS_ENABLED else None,
+)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 # Per-user cooldowns share the slowapi 429 body shape via this handler.
@@ -99,11 +108,13 @@ def health():
     return {"status": "ok"}
 
 
-@app.get("/scalar")
-def get_scalar_docs():
-    return get_scalar_api_reference(
-        openapi_url=app.openapi_url,
-        title = "Scalar API",
-    )
-
-    
+if settings.DOCS_ENABLED:
+    @app.get("/scalar", include_in_schema=False)
+    def get_scalar_docs():
+        # Renders a page whose <script> comes from cdn.jsdelivr.net — which is why
+        # this route only exists when docs are explicitly enabled. See
+        # config.DOCS_ENABLED.
+        return get_scalar_api_reference(
+            openapi_url=app.openapi_url,
+            title="Scalar API",
+        )

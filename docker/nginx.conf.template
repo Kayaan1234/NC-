@@ -23,11 +23,49 @@ server {
     real_ip_header X-Forwarded-For;
     real_ip_recursive on;
 
+    # ---- Security headers ---------------------------------------------------
+    #
+    # Declared once here, at server level, so they cover the SPA and the proxied
+    # API alike. THE TRAP: add_header does not merge — a location block that
+    # declares even one add_header of its own silently drops every inherited one.
+    # Neither location below has any, which is why this works; if you ever add one
+    # there, you must repeat this whole set inside it.
+    #
+    # `always` on each, so they are still sent on 4xx/5xx — including the 429s the
+    # rate limiter returns, which is exactly when you don't want nosniff missing.
+    add_header Strict-Transport-Security $hsts always;   # empty over http; see nginx.conf
+    add_header X-Content-Type-Options    "nosniff" always;
+    add_header X-Frame-Options           "DENY" always;
+    add_header Referrer-Policy           "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy        "geolocation=(), microphone=(), camera=(), payment=(), usb=()" always;
+
+    # CSP. This app is entirely self-hosted by design — fonts, the syntax
+    # highlighter and the maths renderer all run at BUILD time and ship as our own
+    # assets (see frontend/vite.config.ts), and the privacy policy tells users
+    # there are no third-party scripts. 'self' everywhere is therefore the honest
+    # policy, and it is what keeps that promise enforceable rather than aspirational.
+    # Two exceptions, both real and both verified against the built bundle:
+    #   - style-src 'unsafe-inline': index.html carries an inline <style> for the
+    #     dark background (it exists to prevent a white flash before the CSS
+    #     loads, so it cannot move into the stylesheet), and the highlighted code
+    #     blocks and KaTeX output are full of inline style="" attributes.
+    #   - data: on img-src and font-src: a select-arrow SVG in forms.css and the
+    #     base64 woff2 faces Vite inlines into the bundled stylesheet.
+    # script-src stays strictly 'self' — no inline script anywhere in the build.
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
+
     # API: proxy the backend's route prefixes on the SAME origin. No path rewrite,
     # so the /auth-scoped refresh cookie's path still matches. The trailing (/|$)
     # is load-bearing: without it `^/train` also matches the SPA's `/training`
     # page. Keep in sync with the routers in backend/main.py.
-    location ~ ^/(auth|users|train|health|scalar)(/|$) {
+    #
+    # docs/redoc/scalar/openapi.json are proxied even though they are disabled by
+    # default (settings.DOCS_ENABLED) so that DOCS_ENABLED is the ONE switch: with
+    # it off uvicorn 404s them, and with it on the renderer can actually fetch the
+    # schema. Left unproxied, /openapi.json would fall through to the SPA and the
+    # docs page would load but never render. (Note the CSP above still blocks the
+    # CDN script those renderers use — docs are a local-only tool.)
+    location ~ ^/(auth|users|train|health|scalar|docs|redoc|openapi\.json)(/|$) {
         proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host              $host;
         # $remote_addr is now the REAL client (realip rewrote it). Send it as the

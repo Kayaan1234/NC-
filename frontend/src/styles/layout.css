@@ -59,6 +59,14 @@
   text-decoration: none;
 }
 
+/* The page you are already on. NavLink sets aria-current="page" itself, so this
+ * needs no extra prop at the call site. It earns its place now that /, /login and
+ * /register are all public: the bar can point at the page you are looking at, and
+ * without a mark that reads as a dead link rather than as "you are here". */
+.topbar__nav a[aria-current='page'] {
+  color: var(--text);
+}
+
 /* Log out is a button for semantics but must read as a nav link, not a control. */
 .topbar__link {
   background: none;
@@ -170,8 +178,15 @@ main {
   font-size: 0.8125rem;
 }
 
+/* Flex rather than inline text: JSX collapses the newline between two sibling
+   links to nothing, so the legal links would otherwise render as one run-on
+   word. The gap is the separator — no interpunct character to style. */
 .footer {
   flex: none;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
   padding: var(--space-5);
   border-top: 1px solid var(--border);
   text-align: center;

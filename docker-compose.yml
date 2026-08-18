@@ -71,5 +71,39 @@ services:
         condition: service_healthy    # i.e. after migrations have run
     restart: unless-stopped
 
+  # Throwaway Postgres for the test suite. Started on its own, never as part of
+  # the app stack:
+  #
+  #     docker compose up -d db-test
+  #     export TEST_DATABASE_URL=postgresql+psycopg://ncplusplus_user:test@localhost:55432/ncplusplus_test
+  #     pytest -m "not e2e"
+  #
+  # Three differences from `db`, all deliberate:
+  #   * a published host port, because pytest runs on the host, not in the network;
+  #   * a tmpfs rather than a named volume, so the data dies with the container —
+  #     the suite TRUNCATEs everything between tests anyway, and nothing here is
+  #     worth persisting;
+  #   * `profiles`, so `docker compose up` for normal development does NOT start it.
+  #
+  # The database name must end in `_test`; the suite's root conftest.py refuses to
+  # run against anything else, which is what stops it truncating a real database.
+  # POSTGRES_USER owns the created database, without which TRUNCATE is denied.
+  db-test:
+    profiles: ["test"]
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ncplusplus_user
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: ncplusplus_test
+    tmpfs:
+      - /var/lib/postgresql/data
+    ports:
+      - "55432:5432"                  # non-default, so it can't collide with a local Postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ncplusplus_user -d ncplusplus_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
 volumes:
   pgdata:

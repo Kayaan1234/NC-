@@ -146,6 +146,21 @@ class Settings(BaseSettings):
     # Frontend
     FRONTEND_URL: str = "http://localhost:5173"
 
+    # Interactive API docs (/scalar, /docs, /redoc, /openapi.json).
+    #
+    # Off by default, which is the opposite of FastAPI's default and deliberate:
+    # forgetting to disable them in prod is the failure mode, not forgetting to
+    # enable them in dev. Two reasons they must stay off on a public deployment:
+    #   1. All three renderers load their JavaScript from a third-party CDN
+    #      (scalar_fastapi defaults to cdn.jsdelivr.net). The privacy policy tells
+    #      users there are no third-party scripts, and the nginx CSP allows only
+    #      our own origin — so the page would be both a broken promise and a
+    #      blocked request.
+    #   2. It publishes the full API surface, including every auth and
+    #      rate-limited endpoint, to anyone who guesses the path.
+    # Turn it on locally with DOCS_ENABLED=true in backend/.env.
+    DOCS_ENABLED: bool = False
+
     model_config = SettingsConfigDict(env_file=BASE_DIR / ".env", env_file_encoding="utf-8")
 
     @field_validator("CORS_ORIGINS", mode="before")

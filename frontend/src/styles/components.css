@@ -279,3 +279,233 @@
   color: var(--text-faint);
   font-weight: 500;
 }
+
+/* ---- Landing demo ---------------------------------------------------------- */
+
+/* The in-browser training run on the landing page (components/NeuronDemo.tsx).
+ * It is a terminal, so it borrows code.css's chrome rather than the card's: same
+ * raised surface, same hairline border, same 0.8125rem/1.7 measure a code block
+ * gets. The one thing it adds is a floor on the log height, because a block that
+ * grew as lines arrived would push the whole page down thirteen times. */
+.demo {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-top: var(--space-6);
+}
+
+.demo__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.demo__tabs {
+  display: flex;
+  gap: var(--space-2);
+  margin-right: auto;
+}
+
+/* Tabs, not a <select>: there are two datasets and the whole point is that the
+ * second one fails, so both need to be visible at once rather than hidden behind
+ * a closed menu. The selected tab is marked by the text going full-strength, in
+ * keeping with an app that has no accent hue to highlight with. */
+.demo__tab {
+  padding: var(--space-1) var(--space-3);
+  font-size: 0.75rem;
+  background: transparent;
+  color: var(--text-faint);
+  border-color: transparent;
+}
+
+.demo__tab:hover:not(:disabled) {
+  background: transparent;
+  color: var(--text-dim);
+  border-color: var(--border);
+}
+
+.demo__tab--on,
+.demo__tab--on:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--bg-inset);
+  border-color: var(--border-strong);
+}
+
+/* The live weight vector. Tabular figures matter more here than in the log: these
+ * digits are replaced ten times a second, and without fixed advance widths the
+ * row jitters sideways on every update. */
+.demo__weights {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow-x: auto;
+}
+
+.demo__log {
+  padding: var(--space-4);
+  /* Sized to hold a whole run — header, eleven epoch lines, the final accuracy
+   * and the RESULT line — so nothing scrolls out of view as the log fills. The
+   * config in the header line is part of what the demo is showing; if it scrolls
+   * away the reader never learns what lr or how many epochs produced this. Fixed
+   * rather than fluid so the page below doesn't move while lines arrive. */
+  min-height: 21.5rem;
+  max-height: 21.5rem;
+  overflow: auto;
+  font-size: 0.8125rem;
+  line-height: 1.7;
+  /* Same reason as .demo__weights, plus it is what makes the loss column line up
+   * vertically the way the C++'s setw/setprecision does in a real terminal. */
+  font-variant-numeric: tabular-nums;
+  /* JetBrains Mono turns >= into a single ≥ glyph. Off everywhere code is shown,
+   * for the reason code.css gives: the reader must see the characters that are
+   * actually in the source. */
+  font-variant-ligatures: none;
+  font-feature-settings: 'liga' 0, 'calt' 0;
+}
+
+.demo__line {
+  white-space: pre;
+  color: var(--text);
+}
+
+.demo__line--dim {
+  color: var(--text-faint);
+}
+
+/* Numbers carry the one hue in the app that already means "numeric literal"
+ * (see shiki-theme.ts). Nothing else in the log is coloured, so the falling loss
+ * column is the thing the eye follows. */
+.demo__num {
+  color: var(--warn);
+}
+
+.demo__foot {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+/* Sans, because this is the demo explaining itself rather than more output. It
+ * holds its height whether or not the run has finished, so the footer does not
+ * jump when the summary appears. */
+.demo__summary {
+  flex: 1 1 auto;
+  /* Two lines' worth, which is what the xor summary needs: reserving it stops the
+   * footer growing under the button at the exact moment the run finishes. */
+  min-height: 3em;
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+.demo__again {
+  flex: none;
+}
+
+.demo__note {
+  margin-top: var(--space-4);
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--text-dim);
+  max-width: var(--w-prose);
+}
+
+@media (max-width: 640px) {
+  /* The summary and the button stop sharing a line before the button gets
+     squeezed to two words per row. */
+  .demo__foot {
+    flex-direction: column;
+  }
+
+  .demo__summary {
+    min-height: 0;
+  }
+}
+
+/* ---- Rung ladder ----------------------------------------------------------- */
+
+/* The roadmap as a list, numbered because it is genuinely ordered: each rung
+ * needs the one below it, which is the argument for starting at zero. Rows are a
+ * grid so the state column reads straight down, the same reasoning as .job__row. */
+.rungs {
+  display: flex;
+  flex-direction: column;
+}
+
+.rung {
+  display: grid;
+  grid-template-columns: 2ch minmax(0, 1fr) max-content;
+  align-items: baseline;
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
+  font-size: 0.8125rem;
+}
+
+.rung + .rung {
+  border-top: 1px solid var(--border);
+}
+
+.rung__n {
+  color: var(--text-faint);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.rung__name {
+  color: var(--text);
+}
+
+/* Why the list is ordered, set below the list. Its own class rather than
+ * .card__note, which this used to borrow: that is a card element, and there is no
+ * card here for it to be part of. */
+.rungs__note {
+  margin-top: var(--space-4);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--text-faint);
+}
+
+/* ---- Landing call to action ------------------------------------------------ */
+
+.cta-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  margin-top: var(--space-7);
+}
+
+/* The one primary action on the page. It is a <Link>, so it matches none of the
+ * .btn-* rules in forms.css — those hang off the bare `button` element selector,
+ * and an <a> that borrowed the class would get a filled background with body type
+ * sitting inside it. The properties are restated here for the same reason
+ * .prose .source-link restates them; see the note in prose.css. */
+.cta {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.5;
+  padding: var(--space-2) var(--space-4);
+  background: var(--text);
+  color: var(--bg);
+  border: 1px solid var(--text);
+  border-radius: var(--radius);
+  text-decoration: none;
+  transition: background-color var(--t), border-color var(--t);
+}
+
+.cta:hover {
+  background: #fff;
+  border-color: #fff;
+  color: var(--bg);
+  text-decoration: none;
+}

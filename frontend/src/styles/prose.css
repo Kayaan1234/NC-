@@ -136,6 +136,38 @@
   margin: var(--space-7) 0;
 }
 
+/* ---- Outbound source link -------------------------------------------------- */
+
+/* The "read the real thing on GitHub" control at the foot of a learn page.
+ *
+ * Scoped under .prose deliberately: `.prose a` above is (0,1,1) and a bare
+ * `.source-link` would be (0,1,0), so the colour set here would lose and the
+ * control would silently render in body-link colour. Same hazard this file's
+ * header comment describes for `.prose > * + *`.
+ *
+ * The properties are restated rather than borrowed from .btn-* in forms.css:
+ * those hang off the bare `button` element selector, which an <a> does not
+ * match, so reaching for .btn-primary alone would give a background with body
+ * type inside it. */
+.prose .source-link {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  padding: var(--space-2) var(--space-4);
+  background: var(--bg-raised);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  text-decoration: none;
+  transition: background-color var(--t), border-color var(--t);
+}
+
+.prose .source-link:hover {
+  background: var(--border);
+  border-color: var(--text-faint);
+}
+
 /* ---- Authoring cues -------------------------------------------------------- */
 
 /* An unfilled ```todo block (see content/rehype-todo-cue.ts). Deliberately the

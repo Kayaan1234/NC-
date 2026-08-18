@@ -56,6 +56,7 @@ export default function Register() {
             <label htmlFor="username">Username</label>
             <input
               id="username"
+              type="text"
               autoComplete="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -114,8 +115,9 @@ export default function Register() {
         </form>
         {error && <Message kind="error">{error}</Message>}
         <p className="card__note">
-          By registering you agree to how we handle your data, described in our{' '}
-          <Link to="/privacy">Privacy Policy</Link>.
+          By registering you agree to our{' '}
+          <Link to="/terms">Terms of Service</Link> and to how we handle your
+          data, described in our <Link to="/privacy">Privacy Policy</Link>.
         </p>
       </div>
       <p className="auth-links">

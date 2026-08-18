@@ -8,9 +8,9 @@
 // (analytics, etc.) is ever added, this stops being sufficient and a real
 // consent mechanism is required.
 //
-// PLACEHOLDERS TO CONFIRM before going public:
-//   - CONTACT_EMAIL must be a real, monitored inbox.
-//   - LAST_UPDATED is the effective date of this version.
+// Both of these were placeholders once and are now confirmed: CONTACT_EMAIL is a
+// real monitored inbox, and LAST_UPDATED is this version's effective date — bump
+// it only when the text below actually changes, not on unrelated edits.
 const CONTACT_EMAIL = 'kayaansomchand@hotmail.co.uk'
 const LAST_UPDATED = '16 July 2026'
 

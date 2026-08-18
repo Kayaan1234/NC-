@@ -1,4 +1,4 @@
-import { curve, scale, ticks, type PlotArea } from './plot'
+import { curve, scale, ticksNoZero, type PlotArea } from './plot'
 
 // σ(x) = 1 / (1 + e^-x), plotted rather than drawn — see plot.ts.
 //
@@ -80,23 +80,21 @@ export default function Sigmoid() {
             tick at 8 would otherwise sit underneath the label. Skipping 0 too —
             the axes already cross there and the y axis carries that label. */}
         <g opacity="0.75">
-          {ticks(-6, 6, 2)
-            .filter((t) => t !== 0)
-            .map((t) => (
-              <g key={t}>
-                <path d={`M${s.sx(t)} ${yZero}v4`} />
-                <text
-                  x={s.sx(t)}
-                  y={yZero + 17}
-                  textAnchor="middle"
-                  fill="currentColor"
-                  opacity="0.8"
-                  style={HALO}
-                >
-                  {t}
-                </text>
-              </g>
-            ))}
+          {ticksNoZero(-6, 6, 2).map((t) => (
+            <g key={t}>
+              <path d={`M${s.sx(t)} ${yZero}v4`} />
+              <text
+                x={s.sx(t)}
+                y={yZero + 17}
+                textAnchor="middle"
+                fill="currentColor"
+                opacity="0.8"
+                style={HALO}
+              >
+                {t}
+              </text>
+            </g>
+          ))}
         </g>
 
         {/* y ticks at the two values that matter: the upper bound and the
