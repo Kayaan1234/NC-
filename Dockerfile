@@ -21,13 +21,25 @@ ENV VITE_API_URL=$VITE_API_URL
 RUN npm run build
 
 # ---- python deps into a copyable venv (keeps build tools out of runtime)
-FROM python:3.11-slim AS deps
+FROM python:3.11-slim AS deps-base
 ENV PIP_NO_CACHE_DIR=1
 WORKDIR /app
 COPY backend/requirements.lock.txt .
 RUN python -m venv /opt/venv \
  && /opt/venv/bin/pip install --upgrade pip \
  && /opt/venv/bin/pip install -r requirements.lock.txt
+
+# ---- worker-only extras (bridge feasibility engine): numpy/scikit-learn/
+# anthropic/voyageai/langfuse/huggingface_hub/kagglehub. A SEPARATE venv, not
+# layered onto deps-base's, so `web` never inherits this weight. See
+# bridge-plan-v3.md §11: "adding scikit-learn bloats the web image too."
+FROM python:3.11-slim AS deps-worker
+ENV PIP_NO_CACHE_DIR=1
+WORKDIR /app
+COPY backend/requirements-worker.lock.txt .
+RUN python -m venv /opt/venv \
+ && /opt/venv/bin/pip install --upgrade pip \
+ && /opt/venv/bin/pip install -r requirements-worker.lock.txt
 
 # ---- compile the training binaries FOR LINUX (the worker shells out to them).
 # gcc:13 is bookworm-based, matching python:3.11-slim; -static-libstdc++/-libgcc
@@ -42,13 +54,14 @@ RUN cd Step0 && g++ -std=c++17 -O2 -Wall -Wextra -static-libstdc++ -static-libgc
 COPY backend/services/Step1/*.cpp backend/services/Step1/*.hpp ./Step1/
 RUN cd Step1 && g++ -std=c++17 -O2 -Wall -Wextra -static-libstdc++ -static-libgcc -o nn main.cpp
 
-# ---- common runtime base: venv + backend package + Linux training binaries, non-root
+# ---- common runtime base: backend package + Linux training binaries, non-root.
+# Deliberately does NOT copy a venv — `web` and `worker` each pull their own
+# (deps-base vs deps-worker) below, so the split actually lands in the image.
 FROM python:3.11-slim AS runtime-base
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PATH="/opt/venv/bin:$PATH"
 WORKDIR /app
-COPY --from=deps /opt/venv /opt/venv
 # Carries Step1's MNIST idx files (~53MB) as well as the Python package. The
 # `web` target doesn't need them but inherits this layer; accepted over splitting
 # the copy, since only the worker image is on a hot deploy path.
@@ -61,6 +74,7 @@ RUN adduser --disabled-password --gecos "" appuser && chown -R appuser /app
 
 # ---- worker: the claim loop (Fargate). No nginx, no SPA — stays lean.
 FROM runtime-base AS worker
+COPY --from=deps-worker /opt/venv /opt/venv
 USER appuser
 # The `web` container runs migrations; the worker just drains (compose/prod order
 # the worker to start after the web service is healthy).
@@ -68,6 +82,7 @@ CMD ["python", "-m", "backend.worker"]
 
 # ---- web: nginx (front) + uvicorn (localhost) + SPA (App Runner entry point)
 FROM runtime-base AS web
+COPY --from=deps-base /opt/venv /opt/venv
 # nginx + envsubst (gettext-base for rendering the server block's $PORT).
 USER root
 RUN apt-get update \
