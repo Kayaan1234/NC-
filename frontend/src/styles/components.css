@@ -247,6 +247,37 @@
   line-height: 1.6;
 }
 
+/* The card the student just landed. Same --ok pair the success message uses, so
+   the banner and the row it points at read as one thing. */
+.model--new {
+  border-color: var(--ok);
+  background: var(--ok-bg);
+}
+
+.model__flag {
+  color: var(--ok);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  margin-left: var(--space-2);
+  text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .model--new {
+    animation: model-landed 1.2s ease-out;
+  }
+
+  @keyframes model-landed {
+    from {
+      border-color: var(--ok);
+      transform: translateY(-2px);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+}
+
 /* ---- Figures --------------------------------------------------------------- */
 
 /* Textbook plates: the diagram sits on the page background, not in a card, and
@@ -508,4 +539,206 @@
   border-color: #fff;
   color: var(--bg);
   text-decoration: none;
+}
+
+/* ---- Bridge (feasibility) --------------------------------------------------- */
+
+/* The pipeline's live narrative and the verdict's assumptions list: a quiet
+ * mono log, indented under its row like the job error messages are. */
+.runlog {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-inset);
+  border-left: 2px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.7;
+  color: var(--text-dim);
+}
+
+/* The verdict headline. Same tinted-surface treatment as .msg--*, but sized as
+ * a page element rather than an inline notice. */
+.verdict-banner {
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-6);
+  border-left: 3px solid var(--border-strong);
+  background: var(--bg-raised);
+  border-radius: var(--radius);
+}
+
+.verdict-banner strong {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.9375rem;
+  margin-bottom: var(--space-2);
+}
+
+.verdict-banner p {
+  margin: 0;
+  color: var(--text-dim);
+}
+
+.verdict-banner--ok {
+  border-left-color: var(--ok);
+  background: var(--ok-bg);
+}
+
+.verdict-banner--warn {
+  border-left-color: var(--warn);
+  background: var(--warn-bg);
+}
+
+.verdict-banner--err {
+  border-left-color: var(--err);
+  background: var(--err-bg);
+}
+
+/* ---- Dataset finder --------------------------------------------------------- */
+
+/* One box, doing two jobs: it matches topics already checked (instant, free)
+ * and offers a real search when nothing matches. Deliberately not a card, so
+ * it reads as the page's primary action rather than one panel among several. */
+.finder {
+  margin-bottom: var(--space-6);
+}
+
+.finder label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: var(--text-dim);
+  margin-bottom: var(--space-2);
+}
+
+.finder input {
+  width: 100%;
+  max-width: var(--w-form);
+}
+
+.finder__matches {
+  margin-top: var(--space-3);
+}
+
+.finder__label {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-faint);
+}
+
+.finder__matches ul {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.finder__matches li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.finder__ready {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--ok);
+}
+
+.finder__go {
+  margin-top: var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.finder__hint {
+  font-size: 0.8125rem;
+  color: var(--text-faint);
+}
+
+/* ---- Dataset card ----------------------------------------------------------- */
+
+.dataset__name {
+  font-family: var(--font-mono);
+  font-size: 0.9375rem;
+  color: var(--text);
+  margin-bottom: var(--space-2);
+}
+
+.dataset__facts {
+  color: var(--text-dim);
+  margin-bottom: var(--space-1);
+}
+
+.dataset__licence {
+  color: var(--text-dim);
+  margin-bottom: var(--space-4);
+}
+
+/* A sentence that is the whole point of its section, so it gets to be bigger
+ * than body text and is never wrapped in a card. */
+.lede {
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  color: var(--text);
+  max-width: 60ch;
+  margin: 0;
+}
+
+.model__meta {
+  margin-top: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-faint);
+}
+
+/* ---- Details disclosure ----------------------------------------------------- */
+
+/* Everything the search measured, closed by default. Present for anyone who
+ * wants to audit the answer, absent from the page a student actually reads. */
+.details {
+  margin-top: var(--space-7);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-4);
+}
+
+.details summary {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: var(--text-faint);
+  cursor: pointer;
+  list-style: none;
+}
+
+.details summary::-webkit-details-marker {
+  display: none;
+}
+
+.details summary::before {
+  content: '▸ ';
+}
+
+.details[open] summary::before {
+  content: '▾ ';
+}
+
+.details summary:hover {
+  color: var(--text-dim);
+}
+
+.details__body {
+  margin-top: var(--space-3);
+  font-size: 0.8125rem;
+  line-height: 1.7;
+  color: var(--text-dim);
+  max-width: 68ch;
+}
+
+.details__body ul {
+  margin: var(--space-2) 0;
+  padding-left: var(--space-5);
 }

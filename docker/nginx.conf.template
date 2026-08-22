@@ -65,7 +65,7 @@ server {
     # schema. Left unproxied, /openapi.json would fall through to the SPA and the
     # docs page would load but never render. (Note the CSP above still blocks the
     # CDN script those renderers use — docs are a local-only tool.)
-    location ~ ^/(auth|users|train|health|scalar|docs|redoc|openapi\.json)(/|$) {
+    location ~ ^/(auth|users|train|bridge|health|scalar|docs|redoc|openapi\.json)(/|$) {
         proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host              $host;
         # $remote_addr is now the REAL client (realip rewrote it). Send it as the

@@ -26,3 +26,15 @@ huggingface_hub
 # at import time and raises OSError with no ~/.kaggle/kaggle.json present,
 # which is a bad match for this worker's fail-fast-on-missing-config pattern.
 kagglehub
+# kagglehub ships kagglesdk as a dependency, but services/bridge/scouts.py
+# imports it DIRECTLY for dataset search (kagglehub itself only downloads), so
+# it is declared here rather than relied on transitively.
+kagglesdk
+
+# Declared because bridge code imports them directly, even though each also
+# arrives transitively today (httpx via langfuse, tenacity via voyageai). A
+# direct import backed only by someone else's dependency breaks at runtime the
+# day that package drops it. Both are already pinned in the lockfile, so naming
+# them here changes nothing about what gets installed.
+httpx      # services/bridge/tools.py, api_path.py — dataset + API probing
+tenacity   # services/bridge/tools.py — retry around datasets-server calls

@@ -67,7 +67,11 @@ export default function Learn() {
           )}
         </div>
 
+        {/* Two ways forward from the reading. Finding a dataset comes first
+            because it is the one that decides what you build; training on the
+            bundled datasets is always available underneath it. */}
         <div className="learn-rail__foot">
+          <Link to={`/training/${modelId}/bridge`}>Find a dataset &rarr;</Link>
           <Link to={`/training/${modelId}`}>Start training &rarr;</Link>
         </div>
       </nav>
