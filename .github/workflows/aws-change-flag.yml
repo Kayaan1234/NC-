@@ -1,0 +1,73 @@
+name: AWS Change Flag
+
+# Deploys are 100% manual (AWS CLI runbook in DEPLOYMENT_GUIDE.md, which is
+# git-ignored/local-only). This workflow makes ZERO AWS calls. It only opens
+# (or updates) a reminder issue when a merge to main touches a file that has
+# historically meant "the deployed infra needs a manual follow-up." The
+# `paths:` filter is what stops this firing on every ordinary merge.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/core/config.py"
+      - "backend/requirements-worker.txt"
+      - "backend/alembic/versions/**"
+      - "Dockerfile"
+      - "docker-compose.yml"
+      - "docker/nginx.conf.template"
+      - "**/*_SERVICES.md"
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  flag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Open or update the AWS-review issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          SERVICES_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/main/BRIDGE_SERVICES.md"
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+
+          BODY=$(cat <<EOF
+          A push to \`main\` (commit \`$SHORT_SHA\`) touched a file that has
+          historically meant the deployed AWS infrastructure needs a manual
+          follow-up. This workflow does **not** touch AWS — it only reminds.
+
+          Checklist before/while deploying this change:
+          - [ ] Re-read the relevant section of \`DEPLOYMENT_GUIDE.md\` for
+                any manual step this change needs. **That file is
+                git-ignored and local-only** — it will not open from a
+                GitHub link; check your own working copy.
+          - [ ] Re-read [\`BRIDGE_SERVICES.md\`]($SERVICES_URL) if this
+                touched Bridge-related infra.
+          - [ ] If a new migration landed, confirm whether it needs a
+                manual grant (e.g. \`CREATE EXTENSION\` under
+                \`rds_superuser\`).
+          - [ ] If \`requirements-worker.txt\` changed, confirm the
+                worker's AWS Secrets/egress allowlist still covers it.
+          - [ ] If Dockerfile/compose/nginx changed, confirm the manual
+                deploy commands in the runbook still match.
+
+          Triggering run: $RUN_URL
+
+          _Opened/updated automatically by
+          \`.github/workflows/aws-change-flag.yml\`. Close it once you've
+          done the manual check for this change._
+          EOF
+          )
+
+          EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --label aws-review --state open --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --repo "$GITHUB_REPOSITORY" --body "$BODY"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" \
+              --title "AWS review needed: infra-relevant change on main" \
+              --label aws-review \
+              --body "$BODY"
+          fi
