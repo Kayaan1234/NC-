@@ -8,12 +8,14 @@ from scalar_fastapi import get_scalar_api_reference
 from backend.routers.auth import router as auth_router
 from backend.routers.users import router as user_router
 from backend.routers.train import router as train_router
+from backend.routers.bridge import router as bridge_router
 
 
 from backend.core.config import settings
 
 from backend.core.limiter import limiter
 from backend.core.errors import CooldownError, cooldown_exception_handler
+from backend.services.bridge.registry import check_bridge_registry
 from backend.services.params import check_registry
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -52,6 +54,10 @@ def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSO
 # hard ceiling, or whose default it would itself reject, is a bug that must
 # surface here rather than as a 422 the user can't explain (services/params.py).
 check_registry()
+# Same treatment for the bridge registry (services/bridge/registry.py). Probe
+# implementations are NOT resolved here — they import sklearn, which the web
+# image deliberately doesn't ship; the worker resolves them at its own boot.
+check_bridge_registry()
 
 # Docs are opt-in (settings.DOCS_ENABLED, default False). Passing None for these
 # three URLs is how FastAPI unregisters the built-in /docs, /redoc and the OpenAPI
@@ -70,6 +76,7 @@ app.add_exception_handler(CooldownError, cooldown_exception_handler)
 app.include_router(auth_router)
 app.include_router(user_router)
 app.include_router(train_router)
+app.include_router(bridge_router)
 
 
 # Apply the Limiter's default_limits (core/limiter.py) to every route as a

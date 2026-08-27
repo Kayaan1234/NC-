@@ -1,0 +1,137 @@
+{
+  "comment": "Curated public-API registry for the Bridge API-feasibility path (bridge-plan-v3.md §7). Discovery happens ONLY within this list — open-web API hunting produces hallucinated endpoints. rate_limit_per_day values are the documented free-tier numbers as of 2026-08; they feed the collection-time arithmetic and should be treated as estimates. probe_url must answer an unauthenticated GET.",
+  "apis": [
+    {
+      "name": "Open-Meteo",
+      "keywords": ["weather", "temperature", "rain", "wind", "climate", "forecast", "humidity"],
+      "modalities": ["tabular", "sequence"],
+      "base_url": "https://api.open-meteo.com",
+      "probe_url": "https://api.open-meteo.com/v1/forecast?latitude=52.2&longitude=0.1&hourly=temperature_2m",
+      "docs_url": "https://open-meteo.com/en/docs",
+      "auth": "none",
+      "rate_limit_per_day": 10000,
+      "terms_note": "Free for non-commercial use; attribution required."
+    },
+    {
+      "name": "USGS Earthquake Catalog",
+      "keywords": ["earthquake", "seismic", "geology", "tremor", "magnitude"],
+      "modalities": ["tabular", "sequence"],
+      "base_url": "https://earthquake.usgs.gov",
+      "probe_url": "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&limit=1",
+      "docs_url": "https://earthquake.usgs.gov/fdsnws/event/1/",
+      "auth": "none",
+      "rate_limit_per_day": 20000,
+      "terms_note": "US public-domain data; be gentle with query volume."
+    },
+    {
+      "name": "CoinGecko",
+      "keywords": ["crypto", "cryptocurrency", "bitcoin", "ethereum", "coin", "token price"],
+      "modalities": ["tabular", "sequence"],
+      "base_url": "https://api.coingecko.com",
+      "probe_url": "https://api.coingecko.com/api/v3/ping",
+      "docs_url": "https://docs.coingecko.com/reference/introduction",
+      "auth": "free_key",
+      "rate_limit_per_day": 14400,
+      "terms_note": "Free tier is ~10 calls/min; attribution required."
+    },
+    {
+      "name": "Alpha Vantage",
+      "keywords": ["stock", "stocks", "shares", "equity", "market", "finance", "forex", "trading"],
+      "modalities": ["tabular", "sequence"],
+      "base_url": "https://www.alphavantage.co",
+      "probe_url": "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=IBM&apikey=demo",
+      "docs_url": "https://www.alphavantage.co/documentation/",
+      "auth": "free_key",
+      "rate_limit_per_day": 25,
+      "terms_note": "Free tier is 25 requests/DAY — collection is slow; paid tiers lift it."
+    },
+    {
+      "name": "football-data.org",
+      "keywords": ["football", "soccer", "premier league", "match", "fixtures", "goals"],
+      "modalities": ["tabular"],
+      "base_url": "https://api.football-data.org",
+      "probe_url": "https://api.football-data.org/v4/competitions",
+      "docs_url": "https://www.football-data.org/documentation/quickstart",
+      "auth": "free_key",
+      "rate_limit_per_day": 14400,
+      "terms_note": "Free tier: 10 calls/min, major competitions only."
+    },
+    {
+      "name": "TheSportsDB",
+      "keywords": ["sport", "sports", "team", "league", "basketball", "baseball", "cricket", "rugby"],
+      "modalities": ["tabular"],
+      "base_url": "https://www.thesportsdb.com",
+      "probe_url": "https://www.thesportsdb.com/api/v1/json/3/all_leagues.php",
+      "docs_url": "https://www.thesportsdb.com/api.php",
+      "auth": "free_key",
+      "rate_limit_per_day": 4000,
+      "terms_note": "Free key '3' for testing; patron key for real volume."
+    },
+    {
+      "name": "eBird",
+      "keywords": ["bird", "birds", "birdwatching", "ornithology", "species sighting"],
+      "modalities": ["tabular", "sequence"],
+      "base_url": "https://api.ebird.org",
+      "probe_url": "https://api.ebird.org/v2/ref/taxonomy/ebird?fmt=json&cat=species",
+      "docs_url": "https://documenter.getpostman.com/view/664302/S1ENwy59",
+      "auth": "free_key",
+      "rate_limit_per_day": 10000,
+      "terms_note": "Free key by request; data use requires citing eBird."
+    },
+    {
+      "name": "iNaturalist",
+      "keywords": ["wildlife", "animal", "plant", "insect", "nature", "species", "observation"],
+      "modalities": ["tabular", "image_grid"],
+      "base_url": "https://api.inaturalist.org",
+      "probe_url": "https://api.inaturalist.org/v1/observations?per_page=1",
+      "docs_url": "https://api.inaturalist.org/v1/docs/",
+      "auth": "none",
+      "rate_limit_per_day": 10000,
+      "terms_note": "Max ~1 req/s; observation photos carry per-user licenses."
+    },
+    {
+      "name": "OMDb",
+      "keywords": ["movie", "film", "cinema", "imdb", "actor", "box office"],
+      "modalities": ["tabular", "text_pair"],
+      "base_url": "https://www.omdbapi.com",
+      "probe_url": "https://www.omdbapi.com/?i=tt3896198",
+      "docs_url": "https://www.omdbapi.com/",
+      "auth": "free_key",
+      "rate_limit_per_day": 1000,
+      "terms_note": "Free tier 1,000 req/day."
+    },
+    {
+      "name": "Open Library",
+      "keywords": ["book", "books", "author", "literature", "reading", "isbn"],
+      "modalities": ["tabular", "text_pair"],
+      "base_url": "https://openlibrary.org",
+      "probe_url": "https://openlibrary.org/search.json?q=test&limit=1",
+      "docs_url": "https://openlibrary.org/developers/api",
+      "auth": "none",
+      "rate_limit_per_day": 8640,
+      "terms_note": "Be gentle (~100 req/5min); bulk dumps exist and beat scraping."
+    },
+    {
+      "name": "TfL Unified API",
+      "keywords": ["transport", "tube", "london", "bus", "train", "traffic", "commute"],
+      "modalities": ["tabular", "sequence"],
+      "base_url": "https://api.tfl.gov.uk",
+      "probe_url": "https://api.tfl.gov.uk/Line/Mode/tube/Status",
+      "docs_url": "https://api.tfl.gov.uk/",
+      "auth": "free_key",
+      "rate_limit_per_day": 43200,
+      "terms_note": "Free key: 500 req/min; TfL open-data terms apply."
+    },
+    {
+      "name": "Last.fm",
+      "keywords": ["music", "song", "artist", "album", "listening", "scrobble", "genre"],
+      "modalities": ["tabular", "sequence"],
+      "base_url": "https://ws.audioscrobbler.com",
+      "probe_url": "https://ws.audioscrobbler.com/2.0/?method=chart.gettoptracks&format=json&api_key=demo",
+      "docs_url": "https://www.last.fm/api",
+      "auth": "free_key",
+      "rate_limit_per_day": 8640,
+      "terms_note": "Free key; no bulk redistribution of catalogue data."
+    }
+  ]
+}

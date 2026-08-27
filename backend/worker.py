@@ -31,7 +31,8 @@ from sqlalchemy.orm import Session
 from backend.core.config import settings
 from backend.database import SessionLocal, close_quietly, reset_session
 from backend.models.TrainingJob import JobStatus, TrainingJob, utcnow as _utcnow
-from backend.services import email_drain
+from backend.services import bridge_drain, email_drain
+from backend.services.bridge.registry import check_bridge_registry
 from backend.services.params import check_registry
 from backend.services.registry import get_model
 from backend.services.runner import run_training
@@ -181,6 +182,20 @@ def _start_email_thread() -> threading.Thread:
     return thread
 
 
+def _start_bridge_thread() -> threading.Thread:
+    """Launch the bridge feasibility drain on its own thread, for the same
+    reason the email drain has one: a 1-4 minute pipeline run and a training
+    run must not queue behind each other. Idles while BRIDGE_ENABLED is false."""
+    thread = threading.Thread(
+        target=bridge_drain.run,
+        args=(lambda: _shutdown,),
+        name="bridge-drain",
+        daemon=True,
+    )
+    thread.start()
+    return thread
+
+
 def main() -> None:
     logging.basicConfig(
         level=logging.INFO,
@@ -192,6 +207,9 @@ def main() -> None:
     # Same guard the API runs at import: a bad ModelSpec should stop the worker
     # starting, not surface as a job that fails after the user waits for it.
     check_registry()
+    # The worker is the only process that can resolve probe implementations
+    # (they import sklearn), so it runs the stricter form of the bridge gate.
+    check_bridge_registry(require_probe_impls=True)
 
     logger.info("worker started (poll=%ss, heartbeat=%ss, stale=%ss)",
                 settings.JOB_POLL_INTERVAL_SECONDS,
@@ -211,6 +229,7 @@ def main() -> None:
     # worker at launch and signup/verification email flows immediately; flip
     # TRAINING_ENABLED on later to start draining training jobs too.
     email_thread = _start_email_thread()
+    bridge_thread = _start_bridge_thread()
 
     db = SessionLocal()
     current: TrainingJob | None = None
@@ -223,6 +242,9 @@ def main() -> None:
                 if not _shutdown and not email_thread.is_alive():
                     logger.error("email drain thread died; restarting")
                     email_thread = _start_email_thread()
+                if not _shutdown and not bridge_thread.is_alive():
+                    logger.error("bridge drain thread died; restarting")
+                    bridge_thread = _start_bridge_thread()
 
                 if not settings.TRAINING_ENABLED:
                     # Email-only mode: the queue is never fed (the API 503s POSTs
@@ -262,9 +284,10 @@ def main() -> None:
                 logger.exception("could not requeue in-flight job on shutdown")
     finally:
         close_quietly(db)
-        # _shutdown is already set; give the email thread a moment to finish its
-        # current row and exit cleanly (it's a daemon, so this never hangs exit).
+        # _shutdown is already set; give the drain threads a moment to finish
+        # their current row and exit cleanly (daemons, so this never hangs exit).
         email_thread.join(timeout=10)
+        bridge_thread.join(timeout=10)
         logger.info("worker stopped")
 
 

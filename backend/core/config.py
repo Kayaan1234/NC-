@@ -102,6 +102,68 @@ class Settings(BaseSettings):
     # ModelSpec.timeout_seconds.
     JOB_HEARTBEAT_STALE_SECONDS: int = 90
 
+    # Bridge feasibility engine (bridge-plan-v3.md). Runs on the worker like
+    # training; the API only inserts bridge_jobs rows. Off by default for the
+    # same reason TRAINING_ENABLED is false in prod until the worker has a home —
+    # and additionally because every live run spends real API dollars, so the
+    # switch must be a conscious flip, never a default.
+    BRIDGE_ENABLED: bool = False
+    # Queueing a bridge run costs us money per request (LLM + embeddings), which
+    # is a strictly stronger version of the argument that rate-limits /train.
+    # Library lookups are free and stay under the generous default limit.
+    RATE_LIMIT_BRIDGE: str = "3/hour"
+    # Hard per-run spend ceiling, checked BEFORE each paid batch is dispatched —
+    # not after — so a topic with an unexpectedly wide candidate pool aborts
+    # mid-run instead of surfacing in a bill (bridge-plan-v3.md §14.8).
+    BRIDGE_VERDICT_SPEND_CEILING_USD: float = 0.15
+    # Global daily cap across ALL users and seed runs. POST /bridge/runs refuses
+    # (429) once the day's summed job cost crosses this.
+    BRIDGE_DAILY_SPEND_CAP_USD: float = 1.00
+    # Overall wall-clock deadline for one live run, checked between pipeline
+    # stages. Separate from the heartbeat (liveness) exactly as ModelSpec's
+    # timeout is: a run can be alive and still be taking too long.
+    BRIDGE_RUN_TIMEOUT_SECONDS: int = 420
+    BRIDGE_JOB_POLL_INTERVAL_SECONDS: float = 2.0
+    BRIDGE_JOB_HEARTBEAT_SECONDS: int = 10
+    # Longer than the training stale window: pipeline stages block on outbound
+    # HTTP calls (search, LLM), and a beat only lands between them.
+    BRIDGE_JOB_HEARTBEAT_STALE_SECONDS: int = 180
+    # How long the OLDEST queued job may sit unclaimed before the API reports the
+    # queue as stalled. This is the other half of the liveness story: the stale
+    # window above rescues a job that started and went silent, but a job nothing
+    # ever claims has no heartbeat to go silent, so only its age tells us the
+    # drain is gone. Generous compared with the 2s poll — this should only fire
+    # when no worker is running at all.
+    BRIDGE_JOB_QUEUE_STALE_SECONDS: int = 300
+    # How many scout searches run concurrently during fan-out.
+    BRIDGE_SCOUT_CONCURRENCY: int = 4
+    # Ceiling on how many candidates get relevance-judged in one run. This is
+    # the pipeline's dominant cost: judging is one paid call per candidate and
+    # the candidate's card text is the bulk of the tokens, so it scales linearly
+    # with pool size (two scouts on a popular topic return 60-70). Candidates
+    # are sorted by downloads first, so the cap drops the long tail of obscure
+    # repos rather than an arbitrary slice. Raising this raises cost per verdict
+    # roughly proportionally.
+    BRIDGE_MAX_JUDGED_CANDIDATES: int = 40
+
+    # Bridge API keys. All optional so the WEB container boots without them
+    # (they are worker concerns); check_bridge_registry refuses to boot with
+    # BRIDGE_ENABLED=true if a required one is missing.
+    ANTHROPIC_API_KEY: str | None = None
+    # Voyage AI embeddings. Named VOYAGER_ (not the SDK's VOYAGE_) to match the
+    # key already provisioned in backend/.env; the client is constructed with an
+    # explicit api_key from here, so the SDK's own env lookup never runs.
+    VOYAGER_API_KEY: str | None = None
+    # Langfuse observability (cloud.langfuse.com). Optional on purpose: tracing
+    # no-ops cleanly when unset, so a missing account never blocks a run.
+    LANGFUSE_PUBLIC_KEY: str | None = None
+    LANGFUSE_SECRET_KEY: str | None = None
+    LANGFUSE_HOST: str = "https://cloud.langfuse.com"
+    # Kaggle dataset search requires an authenticated token; the Kaggle scout
+    # activates only when both are set and skips gracefully otherwise.
+    KAGGLE_USERNAME: str | None = None
+    KAGGLE_KEY: str | None = None
+
     # Email outbox. Transactional emails are written to the email_outbox table in
     # the same transaction as the change that triggers them, and delivered by a
     # drain loop running on a thread inside the worker process (see
@@ -161,7 +223,15 @@ class Settings(BaseSettings):
     # Turn it on locally with DOCS_ENABLED=true in backend/.env.
     DOCS_ENABLED: bool = False
 
-    model_config = SettingsConfigDict(env_file=BASE_DIR / ".env", env_file_encoding="utf-8")
+    # extra="ignore": backend/.env may hold keys no Settings field declares yet
+    # (e.g. a provider key stashed before its feature lands). The pydantic
+    # default is to refuse to boot on them, which turns "added a key to .env"
+    # into a crashed container — ignoring unknown entries is the right failure
+    # mode for a human-edited file. The cost is that a typo'd setting name is
+    # silently ignored rather than flagged.
+    model_config = SettingsConfigDict(
+        env_file=BASE_DIR / ".env", env_file_encoding="utf-8", extra="ignore"
+    )
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod

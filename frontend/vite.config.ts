@@ -57,7 +57,7 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     proxy: {
-      '^/(auth|users|train|health|scalar|openapi\\.json)($|/)': {
+      '^/(auth|users|train|bridge|health|scalar|openapi\\.json)($|/)': {
         target: BACKEND,
         changeOrigin: false,
       },

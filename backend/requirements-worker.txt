@@ -1,0 +1,40 @@
+# Worker-only dependencies for the bridge feasibility engine (bridge-plan-v3.md).
+# Kept out of requirements.txt / the `deps-base` Docker stage so the web (App
+# Runner) image doesn't inherit numpy/scikit-learn/etc — only the worker image
+# (Dockerfile `deps-worker` stage) installs this file. See bridge-plan-v3.md §11.
+-r requirements.txt
+
+# Probe harness: fit_variants / decide over named model configurations.
+numpy
+scikit-learn
+
+# LLM SDK backing the three agentic call sites (query planner, relevance
+# judge, verdict summary).
+anthropic
+
+# Embedding provider for dataset-card pgvector recall (Anthropic doesn't
+# offer embeddings directly; Voyage AI is Anthropic's recommended partner).
+voyageai
+
+# Observability: traces planner queries, scout calls, gate outcomes, probe
+# inputs/metrics, replan rounds, tokens, latency, cost.
+langfuse
+
+# Dataset search / card scouting.
+huggingface_hub
+# kagglehub instead of the classic `kaggle` package: `kaggle` authenticates
+# at import time and raises OSError with no ~/.kaggle/kaggle.json present,
+# which is a bad match for this worker's fail-fast-on-missing-config pattern.
+kagglehub
+# kagglehub ships kagglesdk as a dependency, but services/bridge/scouts.py
+# imports it DIRECTLY for dataset search (kagglehub itself only downloads), so
+# it is declared here rather than relied on transitively.
+kagglesdk
+
+# Declared because bridge code imports them directly, even though each also
+# arrives transitively today (httpx via langfuse, tenacity via voyageai). A
+# direct import backed only by someone else's dependency breaks at runtime the
+# day that package drops it. Both are already pinned in the lockfile, so naming
+# them here changes nothing about what gets installed.
+httpx      # services/bridge/tools.py, api_path.py — dataset + API probing
+tenacity   # services/bridge/tools.py — retry around datasets-server calls

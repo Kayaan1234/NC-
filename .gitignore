@@ -38,6 +38,9 @@ id_rsa*
 
 # --- Markdown / planning docs (not shipped to production) ---
 *.md
+# ...except the bridge services map, which documents live wiring (env vars,
+# deploy steps, recorded decisions) and must stay versioned with the code.
+!BRIDGE_SERVICES.md
 
 # --- Compiled training binaries (built per-machine via services/*/Makefile) ---
 # Platform-specific: a macOS build won't run in a Linux container.

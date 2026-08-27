@@ -7,6 +7,8 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import Training from './pages/Training'
 import TrainingModel from './pages/TrainingModel'
+import Bridge from './pages/Bridge'
+import BridgeVerdict from './pages/BridgeVerdict'
 import Learn from './pages/Learn'
 import ForgotPassword from './pages/ForgotPassword'
 import PasswordReset from './pages/PasswordReset'
@@ -74,6 +76,27 @@ export default function App() {
           element={
             <RequireAuth>
               <Training />
+            </RequireAuth>
+          }
+        />
+        {/* The dataset finder, per model, reached from that model's learn rail.
+            Scoped to a step because "which data suits this?" only means
+            something once you know which model you are building. API calls go
+            to /bridge (which IS in the proxy/nginx regexes); the SPA path stays
+            under /training so a full-page load is not proxied to the backend. */}
+        <Route
+          path="/training/:modelId/bridge"
+          element={
+            <RequireAuth>
+              <Bridge />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/training/:modelId/bridge/:topicSlug"
+          element={
+            <RequireAuth>
+              <BridgeVerdict />
             </RequireAuth>
           }
         />
