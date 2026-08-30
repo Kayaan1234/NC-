@@ -5,9 +5,10 @@
 // There are two shapes, and a model picks one:
 //
 //   'pages'       a sequence of .mdx pages, one per source file, with prev/next
-//                 pagination. This is how step1 is written.
+//                 pagination. Both models started here, and it is still the right
+//                 first draft: prose is far quicker to write than a timeline.
 //   'walkthrough' one continuous narrated timeline the reader plays and scrubs,
-//                 with the rail as chapters. This is how step0 is written.
+//                 with the rail as chapters. Both step0 and step1 are this now.
 //
 // A discriminated union rather than optional fields, because the two genuinely have
 // different content: a page carries a Body component, a chapter carries a slug and a

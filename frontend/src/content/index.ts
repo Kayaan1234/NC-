@@ -16,9 +16,11 @@ import Step0Stage from '../components/walkthrough/Step0Stage'
 import Step0Narration from './step0/narration.mdx'
 import Step0Snippets from './step0/abstraction.mdx'
 import { CHAPTERS as step1Chapters, SCENES as step1Scenes } from './step1/walkthrough'
+import { STEP1_ABSTRACTION } from './step1/abstraction'
 import { STEP1_SOURCES } from './step1/source'
 import Step1Stage from '../components/walkthrough/Step1Stage'
 import Step1Narration from './step1/narration.mdx'
+import Step1Snippets from './step1/abstraction.mdx'
 
 export const MODEL_CONTENT: Record<string, ModelContent> = {
   // The chapter slugs are the ones step0's four .mdx pages used, so every existing
@@ -54,6 +56,15 @@ export const MODEL_CONTENT: Record<string, ModelContent> = {
     Stage: Step1Stage,
     Narration: Step1Narration,
     sources: STEP1_SOURCES,
+    // Same closing page as step0's, one model up: the same MLP as four lines of
+    // Python, and every decision those four lines made without asking. `python` is a
+    // slug alongside the chapter slugs, so it must stay distinct from all of them.
+    epilogue: {
+      slug: 'python',
+      title: 'The same model in Python',
+      abstraction: STEP1_ABSTRACTION,
+      Snippets: Step1Snippets,
+    },
   }),
 }
 
