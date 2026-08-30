@@ -197,12 +197,12 @@ designed for and you inherit every one of those terms.
 
 <Beat id="layer-holds">
 
-A layer owns four matrices and an enum. `weight` and `bias` are the parts that learn.
+A layer owns six matrices and an enum. `weight` and `bias` are the parts that learn.
 `grad_weight` and `grad_bias` are where the backward pass puts its answers, and they
-are deliberately the same shape as the things they are gradients of, which is
-something we lean on in a minute. And notice the constructor scales the random
-weights by $1/\sqrt{\texttt{fan\_in}}$, the same trick from step zero, now applied
-once per layer.
+are deliberately the same shape as the things they are gradients of, which we lean on
+in a minute. Then `cache_input` and `cache_output`, which forward fills in and
+backward reads. And notice the constructor scales the random weights by
+$1/\sqrt{\texttt{fan\_in}}$, the same trick from step zero, now once per layer.
 
 </Beat>
 

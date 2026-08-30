@@ -379,7 +379,7 @@ export const STEP1_ABSTRACTION: Abstraction = {
               name: 'learning_rate_init',
               value: '0.001',
               verdict: 'differs',
-              note: 'A hundred times smaller than the half main.cpp uses for XOR, and a hundredth of the tenth it uses for MNIST. Adam wants a small step because it scales the step itself.',
+              note: 'Five hundred times smaller than the half main.cpp uses for XOR, and a hundredth of the tenth it uses for MNIST. Adam wants a small step because it scales the step itself.',
             },
             {
               name: 'max_iter',

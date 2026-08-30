@@ -175,7 +175,7 @@ export const SCENES: Step1Scene[] = [
   {
     id: 'layer-holds',
     chapter: 'layer',
-    seconds: 26,
+    seconds: 28,
     stage: { kind: 'layerFlow', pass: 'forward' },
     code: { kind: 'source', file: 'layer.hpp', anchor: 'Layer(int fan_in', emphasise: ['weight(fan_in, fan_out, rng)'] },
   },
