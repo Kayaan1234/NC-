@@ -137,7 +137,7 @@ export default function Mlp() {
         </marker>
       </defs>
 
-      <g fontFamily="var(--font-mono)" fontSize="12" strokeWidth="1.25">
+      <g fontFamily="var(--font-fig)" fontSize="13" strokeWidth="1.25">
         {/* Edges first, so the units are drawn over the ends of their own lines. */}
         <Edges from={INPUT} to={HIDDEN} />
         <Edges from={HIDDEN} to={OUTPUT} />

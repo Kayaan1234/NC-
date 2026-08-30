@@ -13,6 +13,13 @@
 // defaults to 'all', which renders exactly what this file rendered before the
 // walkthrough existed, so any page importing it as a plain figure is unaffected.
 //
+// Colour splits the picture in two, and the split is the lesson. What arrives from
+// outside — the inputs, the weights, the bias — is fig-axis grey. The neuron
+// itself, the sum and the nonlinearity and what comes out of them, is fig-subject
+// blue. So as the walkthrough reveals parts in order, grey data flows in and the
+// model lights up blue as it gets built. Opacity is untouched by this: it still
+// means "not arrived yet", which is the one job it should have.
+//
 // Ordering note: the summation circle arrives WITH the weighted edges, not with the
 // Σ glyph. Edges have to point at something, and four arrows converging on empty
 // space reads as a mistake. The 'sum' stage then fills the circle it is pointing at.
@@ -35,7 +42,14 @@ function opacityFor(at: NeuronReveal, reveal: NeuronReveal, progress: number): n
   // rather than from nothing. A true zero looked like a bug: the player opens
   // paused at t = 0, where progress is also 0, so the whole stage was blank until
   // someone pressed play.
-  const FLOOR = 0.3
+  //
+  // The floor was 0.3 when everything in here was drawn in near-white on the page
+  // background. On the black stage the parts that arrive first are fig-axis grey,
+  // and 0.3 of that against #000 is close to invisible, so the player again opened
+  // on what looked like an empty frame. Raising it is the fix; dimming less is not
+  // available, because the fade has to start somewhere below full strength for the
+  // arrival to read as an arrival.
+  const FLOOR = 0.55
   return FLOOR + (1 - FLOOR) * Math.min(1, progress / 0.35)
 }
 
@@ -81,7 +95,6 @@ export default function Neuron({
       aria-labelledby="neuron-title"
       fill="none"
       stroke="currentColor"
-      strokeOpacity="0.85"
       vectorEffect="non-scaling-stroke"
     >
       <title id="neuron-title">
@@ -103,7 +116,7 @@ export default function Neuron({
         </marker>
       </defs>
 
-      <g fontFamily="var(--font-mono)" fontSize="12" strokeWidth="1.25">
+      <g fontFamily="var(--font-fig)" fontSize="13" strokeWidth="1.25">
         {/* Inputs, and the weighted edges into the summation node. */}
         {INPUT_YS.map((y, i) => {
           const e = edge({ x: INPUT_X, y, r: INPUT_R }, SUM)
@@ -113,7 +126,7 @@ export default function Neuron({
           const ly = e.y1 + (e.y2 - e.y1) * t - 7
           return (
             <g key={y}>
-              <g opacity={o('inputs')}>
+              <g className="fig-axis" opacity={o('inputs')}>
                 <circle cx={INPUT_X} cy={y} r={INPUT_R} />
                 <text
                   x={INPUT_X}
@@ -125,7 +138,7 @@ export default function Neuron({
                   x{'₁₂₃₄'[i]}
                 </text>
               </g>
-              <g opacity={o('weights')}>
+              <g className="fig-axis" opacity={o('weights')}>
                 <path
                   d={`M${e.x1} ${e.y1}L${e.x2} ${e.y2}`}
                   markerEnd="url(#nc-arrow)"
@@ -148,7 +161,7 @@ export default function Neuron({
 
         {/* Bias, entering the sum from below — it is added like any other term,
             it just has no input to be weighted against. */}
-        <g opacity={o('bias')}>
+        <g className="fig-axis" opacity={o('bias')}>
           <circle cx={BIAS.x} cy={BIAS.y} r={BIAS.r} />
           <text x={BIAS.x} y={BIAS.y + 4} textAnchor="middle" fill="currentColor" stroke="none">
             b
@@ -161,8 +174,15 @@ export default function Neuron({
 
         {/* Summation. The circle arrives with the edges that point into it; the
             glyph arrives when the prose gets to the sum itself. */}
-        <circle cx={SUM.x} cy={SUM.y} r={SUM.r} opacity={o('weights')} />
+        <circle
+          className="fig-subject"
+          cx={SUM.x}
+          cy={SUM.y}
+          r={SUM.r}
+          opacity={o('weights')}
+        />
         <text
+          className="fig-subject"
           x={SUM.x}
           y={SUM.y + 6}
           textAnchor="middle"
@@ -176,7 +196,7 @@ export default function Neuron({
 
         {/* The nonlinearity, boxed rather than circled so it reads as a different
             kind of thing from the arithmetic nodes. */}
-        <g opacity={o('sigmoid')}>
+        <g className="fig-subject" opacity={o('sigmoid')}>
           <path d={`M${SUM.x + SUM.r} ${SUM.y}H${332}`} markerEnd="url(#nc-arrow)" />
           <rect x="340" y="101" width="58" height="44" rx="2" />
           <text x="369" y="129" textAnchor="middle" fill="currentColor" stroke="none" fontSize="16">
@@ -185,7 +205,7 @@ export default function Neuron({
         </g>
 
         {/* Output. */}
-        <g opacity={o('all')}>
+        <g className="fig-subject" opacity={o('all')}>
           <path d={`M398 ${SUM.y}H${438}`} markerEnd="url(#nc-arrow)" />
           <text x="452" y="128" textAnchor="middle" fill="currentColor" stroke="none">
             ŷ

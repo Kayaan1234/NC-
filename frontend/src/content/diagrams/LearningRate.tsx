@@ -50,11 +50,12 @@ function Panel({ area, ws, label }: { area: PlotArea; ws: number[]; label: strin
 
   return (
     <g>
-      {/* The loss surface. */}
-      <path d={curve(area, s, LOSS)} strokeWidth="1.5" opacity="0.55" />
+      {/* The loss surface. Warm, because that is what warm means everywhere in
+          this app: the quantity you are trying to make smaller. */}
+      <path className="fig-warm" d={curve(area, s, LOSS)} strokeWidth="1.75" />
 
       {/* Axis along the bottom: the weight being tuned. */}
-      <g opacity="0.7">
+      <g className="fig-axis">
         <path d={`M${s.left} ${s.bottom}H${s.right}`} />
         <path d={`M${s.sx(0)} ${s.bottom}v4`} />
         <text
@@ -71,24 +72,29 @@ function Panel({ area, ws, label }: { area: PlotArea; ws: number[]; label: strin
         </text>
       </g>
 
-      {/* The walk: dashed connectors, then a dot at each visited weight. */}
-      <path
-        d={points.map((p, i) => `${i ? 'L' : 'M'}${p.x} ${p.y}`).join('')}
-        strokeDasharray="3 3"
-        strokeWidth="1.25"
-        opacity="0.8"
-      />
-      {points.map((p, i) => (
-        <circle
-          key={i}
-          cx={p.x}
-          cy={p.y}
-          r={i === 0 ? 3.5 : 2.5}
-          fill={i === 0 ? 'var(--bg)' : 'currentColor'}
-          stroke="currentColor"
-          strokeWidth="1.25"
+      {/* The walk: dashed connectors, then a dot at each visited weight.
+          Blue against the red bowl, and that pairing is the figure's whole point:
+          the loss is the landscape you are given, the walk is the part you choose.
+          What differs between the two panels is only the walk, since the parabola
+          underneath them is identical. */}
+      <g className="fig-subject">
+        <path
+          d={points.map((p, i) => `${i ? 'L' : 'M'}${p.x} ${p.y}`).join('')}
+          strokeDasharray="3 3"
+          strokeWidth="1.5"
         />
-      ))}
+        {points.map((p, i) => (
+          <circle
+            key={i}
+            cx={p.x}
+            cy={p.y}
+            r={i === 0 ? 4 : 3}
+            fill={i === 0 ? 'var(--bg)' : 'currentColor'}
+            stroke="currentColor"
+            strokeWidth="1.5"
+          />
+        ))}
+      </g>
 
       <text
         x={(s.left + s.right) / 2}
@@ -122,7 +128,7 @@ export default function LearningRate() {
         learning rate takes many shrinking steps and is still far from the minimum; on the right a
         large learning rate overshoots the minimum each time and lands further away than it started.
       </title>
-      <g fontFamily="var(--font-mono)">
+      <g fontFamily="var(--font-fig)">
         <Panel area={TOO_SMALL} ws={descent(1.8, 0.06, 6)} label="lr too small, creeps" />
         <Panel area={TOO_LARGE} ws={descent(0.35, 1.05, 6)} label="lr too large, overshoots" />
       </g>

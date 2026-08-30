@@ -175,7 +175,7 @@ export function Frame({
       vectorEffect="non-scaling-stroke"
     >
       <title id={id}>{title}</title>
-      <g fontFamily="var(--font-mono)" fontSize="12" strokeWidth="1.25">
+      <g fontFamily="var(--font-fig)" fontSize="13" strokeWidth="1.25">
         {children}
       </g>
     </svg>

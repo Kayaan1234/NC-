@@ -178,7 +178,7 @@ export function Tanh() {
         0.25.
       </title>
 
-      <g fontFamily="var(--font-mono)" fontSize="11">
+      <g fontFamily="var(--font-fig)" fontSize="12">
         {/* The two asymptotes tanh approaches but never reaches. */}
         <g opacity="0.45" strokeDasharray="3 4">
           <path d={`M${s.left} ${s.sy(1)}H${s.right}`} />
@@ -271,7 +271,7 @@ export function Relu() {
         step with a filled dot at zero and an open circle above it.
       </title>
 
-      <g fontFamily="var(--font-mono)" fontSize="11">
+      <g fontFamily="var(--font-fig)" fontSize="12">
         {/* --- (a) relu(z) --- */}
         <text x={a.left} y={16} fill="currentColor" stroke="none" fontSize="11" opacity="0.85">
           (a) relu(z)

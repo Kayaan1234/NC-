@@ -23,7 +23,7 @@ export default function Stage({ stage, progress }: { stage: Step0Stage; progress
     case 'neuron':
       return <Neuron reveal={stage.reveal} progress={progress} />
     case 'sigmoid':
-      return <Sigmoid tangent={stage.derivative ?? false} />
+      return <Sigmoid tangent={stage.derivative ?? false} progress={progress} />
     case 'bceLoss':
       return <BceLoss />
     case 'learningRate':

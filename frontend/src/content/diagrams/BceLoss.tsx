@@ -52,16 +52,16 @@ export default function BceLoss() {
         approaches 0; the curve for a true label of 0 is its mirror image.
       </title>
 
-      <g fontFamily="var(--font-mono)" fontSize="11">
+      <g fontFamily="var(--font-fig)" fontSize="12">
         {/* Axes */}
-        <g opacity="0.75">
+        <g className="fig-axis">
           <path d={`M${s.left} ${s.bottom}H${s.right}`} />
           <path d={`M${s.left} ${s.bottom}V${s.top + 6}`} />
           <path d={`M${s.left} ${s.top + 6}l-3.5 5h7z`} fill="currentColor" stroke="none" />
         </g>
 
         {/* x ticks: the predicted probability. */}
-        <g opacity="0.75">
+        <g className="fig-axis">
           {ticks(0, 1, 0.25).map((t) => {
             const x = s.sx(Math.min(Math.max(t, AREA.xMin), AREA.xMax))
             return (
@@ -83,7 +83,7 @@ export default function BceLoss() {
         </g>
 
         {/* y ticks: loss, in nats. */}
-        <g opacity="0.75">
+        <g className="fig-axis">
           {ticks(0, 4, 2).map((t) => (
             <g key={t}>
               <path d={`M${s.left} ${s.sy(t)}h-4`} />
@@ -103,8 +103,13 @@ export default function BceLoss() {
 
         {/* The two branches. Dashed for y=0 so they stay distinguishable without
             a second colour — the palette has none to spare. */}
-        <path d={curve(AREA, s, lossIfOne)} strokeWidth="1.75" />
-        <path d={curve(AREA, s, lossIfZero)} strokeWidth="1.75" strokeDasharray="5 4" />
+        <path className="fig-warm" d={curve(AREA, s, lossIfOne)} strokeWidth="2.25" />
+        <path
+          className="fig-warm"
+          d={curve(AREA, s, lossIfZero)}
+          strokeWidth="2.25"
+          strokeDasharray="5 4"
+        />
 
         <text
           x={s.sx(0.14)}

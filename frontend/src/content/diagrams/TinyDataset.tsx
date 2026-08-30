@@ -69,7 +69,7 @@ export default function TinyDataset() {
         converges to.
       </title>
 
-      <g fontFamily="var(--font-mono)" fontSize="11">
+      <g fontFamily="var(--font-fig)" fontSize="12">
         {/* Axes through the origin: the boundary's intercept is read against them. */}
         <g opacity="0.75">
           <path d={`M${s.left} ${y0}H${s.right - 6}`} />

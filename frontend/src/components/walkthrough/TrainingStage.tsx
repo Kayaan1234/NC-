@@ -108,9 +108,9 @@ export default function TrainingStage({
             : 'The four XOR points, with the neuron’s decision boundary shifting as it trains and never separating them.'}
         </title>
 
-        <g fontFamily="var(--font-mono)" fontSize="11">
+        <g fontFamily="var(--font-fig)" fontSize="12">
           {/* Axes through the origin: the reader is reading coordinates off them. */}
-          <g opacity="0.6">
+          <g className="fig-axis">
             <path d={`M${s.left} ${s.sy(0)}H${s.right}`} />
             <path d={`M${s.sx(0)} ${s.bottom}V${s.top}`} />
           </g>
@@ -130,7 +130,11 @@ export default function TrainingStage({
               has actually fitted `tiny` reaches |w| ~ 1.5, so this can never hide a
               real boundary. */}
           {Math.hypot(w[0], w[1]) > 1e-3 && (
-            <path d={boundary(area, s, w[0], w[1], bias)} strokeWidth="1.75" opacity="0.9" />
+            <path
+              className="fig-subject"
+              d={boundary(area, s, w[0], w[1], bias)}
+              strokeWidth="2.25"
+            />
           )}
 
           {/* Filled for label 1, hollow for label 0, matching Xor.tsx. Class is

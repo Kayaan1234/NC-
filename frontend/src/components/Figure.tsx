@@ -1,7 +1,13 @@
 import type { ReactNode } from 'react'
 
-// A numbered plate for the learn pages, in the register of a maths textbook: line
-// art on the page background with a caption beneath it, no card, no tint, no frame.
+// A numbered frame for the learn pages: the diagram on black, the caption beneath
+// it on the page.
+//
+// This was a textbook plate — line art on the page background, no card and no
+// tint. It became a frame when the site took its visual language from 3Blue1Brown
+// rather than from a printed maths text. The caption deliberately stays OUTSIDE
+// the frame, in chrome colours: it is the page talking about the figure, not part
+// of what the figure shows.
 //
 // The number is an explicit prop rather than something a context provider counts.
 // A counter would renumber every figure the moment a section was reordered in
@@ -19,7 +25,7 @@ export default function Figure({
 }) {
   return (
     <figure className="figure">
-      {children}
+      <div className="figure__frame figure-surface">{children}</div>
       <figcaption>
         <b>Figure {n}</b> — {caption}
       </figcaption>

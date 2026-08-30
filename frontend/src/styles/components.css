@@ -280,21 +280,81 @@
 
 /* ---- Figures --------------------------------------------------------------- */
 
-/* Textbook plates: the diagram sits on the page background, not in a card, and
- * the caption is a numbered mono line beneath it. No frame, no tint — the figure
- * is line art on the same surface as the prose, the way a maths text prints it. */
+/* A figure is a frame, not a plate.
+ *
+ * This used to be a textbook plate: line art sitting directly on the page
+ * background, no frame and no tint, the way a maths text prints it. That was a
+ * deliberate choice and this replaces it deliberately. The reference moved from
+ * the printed page to the screen, and a 3Blue1Brown frame is a black rectangle
+ * you look into rather than ink on the paper you are already reading.
+ *
+ * The tonal step from --bg to pure black is what makes it read as a window. See
+ * tokens.css for why #000 is right here and wrong three inches away in the nav.
+ *
+ * .figure-surface is shared with the walkthrough stage, which is the same object:
+ * one is a frame you read past, the other a frame that moves. */
+.figure-surface {
+  background: var(--fig-ground);
+  color: var(--fig-ink);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+
+  /* Diagrams knock holes in whatever runs under their tick labels by stroking
+   * the glyphs in the background colour (see the HALO const in Sigmoid.tsx and
+   * seven others). Inside this frame the background genuinely IS --fig-ground,
+   * so redefining --bg here is what the token means rather than a trick, and it
+   * keeps every one of those halos correct without touching a diagram. */
+  --bg: var(--fig-ground);
+}
+
 .figure {
   margin: var(--space-7) 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--space-4);
-  color: var(--text);
+}
+
+/* The frame wraps the art only. The caption stays outside it, on the page, in
+ * chrome colours: it is the page talking about the figure, not part of it. */
+.figure__frame {
+  align-self: stretch;
+  display: flex;
+  justify-content: center;
+  padding: var(--space-5) var(--space-4);
 }
 
 .figure svg {
   max-width: 100%;
   height: auto;
+}
+
+/* Hierarchy by hue rather than by opacity.
+ *
+ * Every diagram in content/diagrams/ was built from one ink plus opacity: axes
+ * at 0.75, asymptotes at 0.45, the subject at full strength. That was the only
+ * hierarchy available with a single colour. With a palette the same hierarchy is
+ * carried by hue, which is how manim does it, and it frees opacity to mean the
+ * thing it should mean, which is "not drawn yet".
+ *
+ * These four classes are the whole vocabulary. They set `color` rather than
+ * `stroke` or `fill` so they work on a <g> and every currentColor underneath it
+ * follows, whether it is a stroked path, a filled arrowhead or a text label.
+ * Applying one to a group is the only edit a diagram needs. */
+.fig-axis {
+  color: var(--fig-axis);
+}
+
+.fig-subject {
+  color: var(--fig-subject);
+}
+
+.fig-accent {
+  color: var(--fig-accent);
+}
+
+.fig-warm {
+  color: var(--fig-warm);
 }
 
 .figure figcaption {
@@ -796,6 +856,12 @@
 /* The stage holds its height across scenes. Beats that are pure maths draw
  * nothing, and without a floor the transport and the caption would jump up the
  * page every time one came round. */
+/* The stage carries .figure-surface too, so it is literally the same black frame
+ * a static figure gets. That is the point: the player is a figure that moves.
+ *
+ * Note there is no `color` here. .figure-surface sets --fig-ink and this rule is
+ * later in the file, so redeclaring it would silently win and put the stage back
+ * to chrome grey while every static figure stayed on the figure palette. */
 .walkthrough__stage {
   /* Tall enough for the tallest stage (the training plot, which carries two lines
    * of log under its SVG). A shorter floor let the transport jump down whenever a
@@ -804,7 +870,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text);
+  padding: var(--space-5) var(--space-4);
 }
 
 .walkthrough__stage svg {

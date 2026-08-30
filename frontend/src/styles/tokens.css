@@ -1,14 +1,43 @@
 /* Design tokens.
  *
- * The surface is a dark grey terminal, so: never pure black (#000 on an OLED
- * reads as a hole in the page and makes hairline borders impossible), never pure
- * white (#fff on dark greys buzzes at small sizes). Everything sits in a narrow
- * band between #101214 and #e4e6e8.
+ * Two palettes, and the split is the whole system. CHROME is everything you
+ * click: nav, forms, job rows, cards, prose. FIGURES are the diagrams and the
+ * walkthrough stage. They look nothing alike, on purpose.
  *
- * There are exactly three hues in the whole app, all heavily desaturated, and all
- * three carry meaning — a job's outcome, or a message's severity. Nothing is
- * coloured for decoration. If you find yourself adding a fourth, the thing you
- * want is probably a grey level or a font weight. */
+ * ---- Chrome ----------------------------------------------------------------
+ *
+ * A dark grey terminal, so: never pure black (#000 on an OLED reads as a hole in
+ * the page and makes hairline borders impossible), never pure white (#fff on
+ * dark greys buzzes at small sizes). Everything sits in a narrow band between
+ * #101214 and #e4e6e8.
+ *
+ * Exactly three hues, all heavily desaturated, and all three carry meaning — a
+ * job's outcome, or a message's severity. Nothing in the chrome is coloured for
+ * decoration. If you find yourself adding a fourth, the thing you want is
+ * probably a grey level or a font weight. That rule still holds, and the figure
+ * palette below is not a licence to break it: --ok/--warn/--err mean status, and
+ * a figure colour must never be used to mean status or the reverse.
+ *
+ * ---- Figures ---------------------------------------------------------------
+ *
+ * A figure is a frame, not a page. It gets pure black and saturated colour
+ * precisely because it is NOT chrome: there are no hairline borders inside a
+ * diagram for #000 to swallow, and nothing in it is clickable.
+ *
+ * The values are 3Blue1Brown's, read from the source rather than sampled:
+ * manimlib/default_config.yml for the `colors:` map, and 3b1b/videos'
+ * custom_config.yml for what the videos actually override. Two things there are
+ * worth knowing before touching these:
+ *
+ *   - Manim's own default background is #333333. The videos set #000000. The
+ *     black is 3b1b's choice, not the library's.
+ *   - The videos are encoded with `saturation: 1.5`, so what you see on YouTube
+ *     is more vivid than these hexes. That boost compensates for yuv420p chroma
+ *     subsampling. An SVG on an sRGB display loses nothing, so applying it here
+ *     would overshoot the reference rather than match it. Raw values, deliberately.
+ *
+ * Hierarchy is carried by hue, the way manim does it: grey scaffolding recedes,
+ * the subject is saturated. Before this it was carried by opacity on one ink. */
 :root {
   --bg: #16181a;
   --bg-raised: #1d2022;
@@ -31,10 +60,51 @@
   --warn-bg: #22201b;
   --err-bg: #221b1b;
 
+  /* Figure palette. Applied by .figure and .stage, never by chrome.
+   * Named after the job, not the hue, so a diagram reads as a sentence:
+   * axis recedes, subject is the thing being reasoned about, accent is where to
+   * look now, warm is the quantity that ought to shrink. */
+  --fig-ground: #000000; /* 3b1b/videos custom_config.yml */
+  --fig-ink: #dddddd; /* GREY_A, manim's default stroke colour */
+  --fig-axis: #7f868e; /* scaffolding: axes, ticks, asymptotes */
+  --fig-subject: #58c4dd; /* BLUE_C, manim's signature blue */
+  --fig-accent: #f4d345; /* YELLOW_D */
+  --fig-warm: #fc6255; /* RED_C */
+
+  /* Two departures from manim, both deliberate:
+   *
+   *   --fig-axis is darker than manim's GREY_B (#bbbbbb). Manim's scaffolding
+   *   sits in a frame holding two or three objects at 1080p. A 460x260 SVG on a
+   *   web page is denser, and #bbb axes there compete with the curve instead of
+   *   supporting it.
+   *
+   *   --fig-accent is YELLOW_D, not manim's median YELLOW_C (#ffff00). Pure
+   *   yellow on pure black vibrates on an LCD at hairline widths. D is also
+   *   closer to what the videos actually look like after their saturation pass. */
+
   --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo,
     Consolas, monospace;
   --font-sans: 'IBM Plex Sans Variable', ui-sans-serif, system-ui, -apple-system,
     'Segoe UI', sans-serif;
+
+  /* Figure lettering: Computer Modern, which is what 3b1b's videos set for
+   * on-screen text (custom_config.yml sets `font: CMU Serif`, overriding manim's
+   * own default of Consolas).
+   *
+   * These cost nothing. main.tsx already imports katex.min.css, so the faces are
+   * on disk and served from our own origin — the privacy policy's "no
+   * third-party scripts" and the 'self'-only CSP both stay intact. No new
+   * dependency, no CDN, no webfont request.
+   *
+   * The point is coherence: a label on a diagram and the same symbol in the
+   * equation beside it now render as the identical glyph. Previously the picture
+   * said `w` in JetBrains Mono while the formula said `w` in Computer Modern.
+   *
+   * --font-fig-var is for single variables, which are italic in maths setting.
+   * KaTeX_Math is the face KaTeX itself uses for them, so `$w$` in the prose and
+   * a `w` in a diagram come out identical rather than merely similar. */
+  --font-fig: 'KaTeX_Main', 'Latin Modern Roman', Georgia, serif;
+  --font-fig-var: 'KaTeX_Math', 'KaTeX_Main', Georgia, serif;
 
   --space-1: 4px;
   --space-2: 8px;

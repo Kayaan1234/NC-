@@ -129,7 +129,7 @@ export default function Walkthrough({
       return (
         <>
           {s.stage.kind !== 'none' && endsRun && (
-            <div className="walkthrough__stage walkthrough__stage--static">
+            <div className="walkthrough__stage walkthrough__stage--static figure-surface">
               <Stage stage={s.stage} progress={1} />
             </div>
           )}
@@ -211,7 +211,7 @@ export default function Walkthrough({
         {mode === 'play' ? (
           // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
           <div className="walkthrough" ref={playerRef} onKeyDown={onKeyDown} tabIndex={-1}>
-            <div className="walkthrough__stage">
+            <div className="walkthrough__stage figure-surface">
               {held && <Stage stage={held.stage} progress={held.progress} />}
             </div>
 

@@ -201,7 +201,7 @@ export default function XorHidden() {
         clean between the two classes.
       </title>
 
-      <g fontFamily="var(--font-mono)" fontSize="11">
+      <g fontFamily="var(--font-fig)" fontSize="12">
         <text x={115} y={22} textAnchor="middle" fill="currentColor" stroke="none" opacity="0.8">
           (a) what the layer sees
         </text>
