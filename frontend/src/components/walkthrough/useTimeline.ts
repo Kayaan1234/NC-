@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 // The walkthrough's clock.
 //
@@ -57,11 +57,23 @@ export function useTimeline(
   // Read inside the loop so changing speed does not tear the loop down and restart
   // it, which would drop a frame and lose the accumulated sub-frame remainder.
   const rateRef = useRef(rate)
-  rateRef.current = rate
-
   const externalClock = options.externalClock
   const externalRef = useRef(externalClock)
-  externalRef.current = externalClock
+
+  // Layout rather than passive, because both of these are read inside a
+  // requestAnimationFrame callback. A passive effect is flushed after paint, so a
+  // frame that was already scheduled can run first and read the stale value; a
+  // layout effect lands in the same task as the commit, ahead of the next frame.
+  //
+  // Worth being clear that the stakes here are small: `rate` lagging one commit
+  // would be imperceptible, and `externalClock` is undefined in every current
+  // caller. Nothing in this file is load-bearing on effect timing. Layout is simply
+  // the correct choice of the two, and writing a ref during render is the thing
+  // being avoided, since React may call a component body without committing it.
+  useLayoutEffect(() => {
+    rateRef.current = rate
+    externalRef.current = externalClock
+  }, [rate, externalClock])
 
   const seek = useCallback(
     (seconds: number) => {

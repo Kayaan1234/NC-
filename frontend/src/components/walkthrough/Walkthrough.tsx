@@ -137,7 +137,7 @@ export default function Walkthrough({
         </>
       )
     },
-    [scenes],
+    [scenes, sources],
   )
 
   return (
