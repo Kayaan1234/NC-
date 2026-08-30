@@ -97,6 +97,31 @@ describe('extractAnchor, failure modes', () => {
     expect(() => extractAnchor(src, 'void f')).toThrow(/ambiguous/)
   })
 
+  it('walks past a forward declaration to the definition', () => {
+    // Step1/main.cpp declares its functions in a block at the top and defines them
+    // hundreds of lines below. The declaration is a strict prefix of the definition,
+    // so no longer anchor can tell them apart, and without skipping it the anchor is
+    // ambiguous and every main.cpp scene fails.
+    const src = [
+      'Data make_xor();',
+      'double accuracy(MLP& m, const Matrix& X);',
+      '',
+      'Data make_xor() {',
+      '    return {};',
+      '}',
+    ].join('\n')
+
+    const range = extractAnchor(src, 'Data make_xor')
+    expect(range.start).toBe(3)
+    expect(linesIn(src, range)).toHaveLength(3)
+  })
+
+  it('still throws when only a declaration matches', () => {
+    // The skip must not turn "you anchored something with no body" into an empty
+    // panel. A prototype with no definition is an authoring mistake, not a slice.
+    expect(() => extractAnchor('void f(int x);\n', 'void f')).toThrow(/no line starts with/)
+  })
+
   it('throws when the block never closes', () => {
     expect(() => extractAnchor('void f() {\n  int x = 1;\n', 'void f')).toThrow(/never closes/)
   })

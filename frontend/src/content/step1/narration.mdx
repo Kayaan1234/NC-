@@ -1,0 +1,392 @@
+import Beat from '../../components/walkthrough/Beat'
+import SourceLink from '../../components/SourceLink'
+
+{/*
+  The words of the step1 walkthrough. One <Beat> per scene in walkthrough.ts, and
+  the ids have to match exactly: walkthrough.test.ts compares the two sets in both
+  directions, so a rename here that is not made there fails the suite.
+
+  Read content/README.md before editing: no em-dashes, no "it is not X, it is Y",
+  and write like you talk.
+
+  The rule that is specific to this file: it is a SEQUEL. A reader here has already
+  watched a neuron get built. Weights, bias, the sigmoid, gradient descent and
+  binary cross-entropy are all assumed, and every one of them may be USED freely,
+  but none of them gets explained a second time. When a step0 idea comes back, name
+  it as a callback and move on. walkthrough.test.ts counts those callbacks.
+*/}
+
+<Beat id="overview-stack">
+
+Step zero gave us one neuron, and one neuron draws one straight line. Here is what
+happens when we stop at one and start stacking them. Every unit in a layer takes the
+whole of the previous layer as its input, and hands its own output on. Thats a
+multilayer perceptron.
+
+</Beat>
+
+<Beat id="overview-xor">
+
+Here is the problem that forces it. XOR is four points, and the answer is one when
+exactly one of the two inputs is on. Have a look at where they sit. No straight line
+separates the filled points from the hollow ones, and a single neuron only ever gets
+a straight line, so it tops out at seventy five percent.
+
+</Beat>
+
+<Beat id="overview-transform">
+
+Now watch what a hidden layer does with them. It does not find a cleverer boundary.
+It moves the points. Each one goes through $z = xW + b$ and then a tanh, and lands
+somewhere new, and in that new arrangement a straight line works fine. Thats the
+whole idea of a hidden layer: bend the space until the easy answer is the right one.
+
+</Beat>
+
+<Beat id="overview-plan">
+
+So we need three things. A matrix to hold a batch of examples, a layer that knows how
+to go forwards and backwards, and a stack of those layers. Thats the order we will
+build them in.
+
+</Beat>
+
+<Beat id="matrix-why">
+
+Step zero worked one example at a time, and a `std::vector<double>` was plenty. That
+falls apart here for two reasons. There are now whole layers of weights rather than
+one row of them, and we want to push many examples through at once. Both of those
+want the same object, so we may as well write it properly: a matrix, one row per
+example.
+
+</Beat>
+
+<Beat id="matrix-flat">
+
+Here is the thing worth knowing about `Matrix`. The grid you picture is a fiction.
+Underneath it is one contiguous run of doubles, and the element at row $i$, column
+$j$ lives at `i * columns + j`. That is a choice rather than an accident. Contiguous
+memory is what lets the inner loop run fast, and that flat index turns up in nearly
+every function in the file.
+
+</Beat>
+
+<Beat id="matrix-matmul">
+
+Matrix multiply is the operation everything else is built on. Row $i$ of the answer
+is row $i$ of $A$ measured against every column of $B$.
+
+$$
+C_{ij} = \sum_{k} A_{ik} B_{kj}
+$$
+
+In code thats three nested loops, and the inner one over `k` is the dot product you
+already wrote in step zero. It has not changed at all. We just run it once per output
+element and keep the answers.
+
+</Beat>
+
+<Beat id="matrix-bias">
+
+Adding the bias needs one small trick. The bias holds a single row, one number per
+output, but the thing we are adding it to has one row per example in the batch. So we
+broadcast: the same bias row gets added to every row of the matrix. That check that
+`Bias.rows` is one is the whole of it.
+
+</Beat>
+
+<Beat id="matrix-inplace">
+
+You will notice most functions in this file come in pairs, one with a trailing
+underscore and one without. The underscore version writes into the matrix you handed
+it. The other allocates a fresh one and leaves yours alone. It matters more than it
+looks. Training runs this arithmetic thousands of times a second, and a heap
+allocation on every step is the difference between MNIST finishing and MNIST
+crawling.
+
+</Beat>
+
+<Beat id="math-activations">
+
+Step zero had one nonlinearity, the sigmoid. Here we get two more. Tanh is the
+sigmoid stretched to run from minus one to one, and having outputs centred on zero
+makes life easier for the layer after it. Its derivative is drawn underneath, because
+the derivative is the half we actually spend our time on.
+
+</Beat>
+
+<Beat id="math-deriv-trick">
+
+Now look closely at how the derivative is written. It takes `a`, the value the
+activation already produced, rather than the `x` that went in. For tanh,
+$f'(x) = 1 - \tanh^2(x)$, and $\tanh(x)$ is just $a$, so the whole thing is $1 - a^2$.
+For the sigmoid it comes out as $a(1-a)$, which is exactly the term that cancelled in
+step zero. So once we have the output we never need the input again, and that is why
+the forward pass bothers to hang on to it.
+
+</Beat>
+
+<Beat id="math-relu">
+
+ReLU is the blunt one. Pass positives straight through, flatten negatives to zero.
+Its derivative is one or zero, so gradients travel through a deep stack without
+shrinking away, and it costs a comparison instead of an exponential.
+
+</Beat>
+
+<Beat id="math-softmax">
+
+MNIST has ten possible answers rather than two, so we need ten numbers that behave
+like probabilities. Softmax exponentiates each one and divides by the row's total, so
+they come out positive and summing to one. The line worth looking at is the first
+one, before any of that: we subtract the largest value in the row.
+
+</Beat>
+
+<Beat id="math-softmax-stability">
+
+Here is why. $e^x$ overflows a double somewhere around $x = 710$, and logits get
+large. Subtracting the row maximum changes none of the answers, because the same
+constant appears on the top and the bottom of the fraction and cancels straight out.
+What it does change is that the largest exponent is now $e^0$, so nothing can
+overflow. Step zero clamped its probabilities away from zero and one for this same
+kind of reason.
+
+</Beat>
+
+<Beat id="math-crossentropy">
+
+The loss is cross entropy, and the binary cross entropy you derived in step zero was
+a special case of it all along. With one-hot labels only the true class has a
+non-zero target, so the sum collapses to minus the log of whatever probability we
+gave the right answer.
+
+$$
+L = -\frac{1}{N}\sum_{i} \log p_{i,\,y_i}
+$$
+
+Confident and right costs almost nothing. Confident and wrong costs a lot.
+
+</Beat>
+
+<Beat id="math-absorbed">
+
+And here is the payoff, which is step zero's cancellation happening again with ten
+classes instead of two. Differentiate the softmax and the cross entropy separately
+and you get a mess of terms. Differentiate the composition and nearly all of it
+cancels:
+
+$$
+\frac{\partial L}{\partial z} = p - y
+$$
+
+Predicted minus true, divided by the batch size. Thats the whole gradient function.
+Two lines.
+
+</Beat>
+
+<Beat id="math-absorbed-why">
+
+Its worth sitting with that for a second, because it is the same shape as something
+you have already done. In step zero, the sigmoid paired with binary cross entropy
+gave $p - y$. Here, softmax paired with cross entropy gives $p - y$. The pairing is
+chosen for exactly that reason. Put a loss against an output layer it was not
+designed for and you inherit every one of those terms.
+
+</Beat>
+
+<Beat id="layer-holds">
+
+A layer owns four matrices and an enum. `weight` and `bias` are the parts that learn.
+`grad_weight` and `grad_bias` are where the backward pass puts its answers, and they
+are deliberately the same shape as the things they are gradients of, which is
+something we lean on in a minute. And notice the constructor scales the random
+weights by $1/\sqrt{\texttt{fan\_in}}$, the same trick from step zero, now applied
+once per layer.
+
+</Beat>
+
+<Beat id="layer-forward">
+
+Forward is three lines and you can read them straight off the maths. Multiply the
+input by the weights, add the bias across every row, push the result through the
+activation.
+
+$$
+a = f(xW + b)
+$$
+
+The other two lines are bookkeeping. It keeps the input it saw, and it reuses its own
+output buffer rather than allocating a new one every batch.
+
+</Beat>
+
+<Beat id="layer-cache">
+
+Those two caches are worth a moment, because they look like an optimisation and they
+are really a requirement. Backward needs the input, because the gradient with respect
+to the weights depends on what got multiplied by them. And it needs the output,
+because as we just saw the activation derivatives are written in terms of `a`.
+Neither one is recoverable once forward has returned.
+
+</Beat>
+
+<Beat id="layer-chain">
+
+Backward is the chain rule, and it arrives with one thing handed to it already:
+$\partial L / \partial a$, how much the loss cares about this layer's output. We want
+three things out of it. How the weights should change, how the bias should change,
+and what to pass back to the layer behind us. The first move is shared by all three.
+Multiply by the activation derivative to get $\partial L / \partial z$, the gradient
+just before the nonlinearity.
+
+</Beat>
+
+<Beat id="layer-gradw">
+
+For the weights, $\partial L / \partial W = x^{\top} \delta$. And here is the honest
+way to check that at this size. $x$ is batch by fan-in. $\delta$ is batch by fan-out.
+The answer has to have the shape of `weight`, which is fan-in by fan-out. Transpose
+$x$ and you get fan-in by batch, and that against $\delta$ gives fan-in by fan-out
+exactly. There is only one arrangement of those two that works.
+
+</Beat>
+
+<Beat id="layer-gradb">
+
+The bias gradient is a column sum, and that falls out of what forward did. We added
+the same bias row to every example in the batch, so every example's error feeds back
+into it. Summing down the columns is what gathering all of those contributions
+looks like.
+
+</Beat>
+
+<Beat id="layer-shapes">
+
+Then the gradient we hand backwards, which is $\delta W^{\top}$. Same argument again.
+It has to come out shaped like this layer's input, which is the previous layer's
+output, and transposing the weights is the only thing that gets you there. In step
+zero you could check the calculus by staring at it. At this size you check the
+shapes, and shapes are hard to get wrong once you insist on them.
+
+</Beat>
+
+<Beat id="layer-update">
+
+Update is step zero's line, applied to a whole matrix instead of a handful of
+numbers. Scale the gradients by the learning rate, subtract them from the weights,
+and thats it. It scales in place, which would be alarming if backward did not build a
+fresh gradient from scratch every time it runs. Everything you learned about learning
+rates in step zero carries over here untouched.
+
+</Beat>
+
+<Beat id="mlp-stack">
+
+An MLP is a vector of layers, and once a layer is right this file is short.
+`layer_sizes` gives the widths, and it has one more entry than there are layers,
+because $n$ layers need $n+1$ shapes to sit between.
+
+</Beat>
+
+<Beat id="mlp-forward">
+
+Forward is a loop. Take the input, hand it to the first layer, take what comes out,
+hand that to the next. The one thing worth noticing is that it passes references
+rather than copies. Each layer already owns the buffer holding its own output, so
+there is nothing to copy, and at MNIST batch sizes that saves a lot of pointless
+memory traffic.
+
+</Beat>
+
+<Beat id="mlp-backward">
+
+Backward is the same loop running the other way, and `rbegin` is what makes it the
+other way. Start at the last layer with the gradient of the loss, and each layer
+hands the one behind it exactly what that layer needs. This is backpropagation, and
+thats genuinely all it is: forward through the stack, then the chain rule back
+through it.
+
+</Beat>
+
+<Beat id="mlp-linear">
+
+There is one rule the constructor enforces, and it looks arbitrary until you connect
+it to something. The last layer's activation has to be `LINEAR`. Remember that the
+gradient we computed, $p - y$, already had the softmax folded into it. If the output
+layer applied a softmax of its own as well, it would be applied twice, once going
+forward and once inside the gradient. The last layer does nothing on purpose, because
+the loss function is already doing it.
+
+</Beat>
+
+<Beat id="mlp-gradcheck">
+
+One more file ships alongside this one, `grad_check.hpp`, and its the thing that
+tells you whether any of the above is right. Nudge a single weight by a tiny amount,
+measure how much the loss actually moves, and compare that against the gradient the
+backward pass claims. If they agree to several decimal places your calculus is right.
+If they do not, there is a sign error somewhere, and this is how you find it.
+
+</Beat>
+
+<Beat id="main-defaults">
+
+The driver runs two datasets, and nearly every default depends on which one you pick.
+XOR gets eight hidden units, tanh, a learning rate of one half, and two thousand
+epochs, which sounds enormous until you remember the whole training set is four
+examples. MNIST gets thirty two hidden units, ReLU, a tenth, and fifteen. These are
+the numbers you will see filled in on the training page.
+
+</Beat>
+
+<Beat id="main-xor-works">
+
+So, XOR, with a real hidden layer doing the moving. On the left the four points as
+they arrive. On the right where they land, and the line that now separates them
+cleanly. One neuron managed seventy five percent on this. Two layers get all of it.
+
+</Beat>
+
+<Beat id="main-mnist">
+
+MNIST is the reason anyone builds one of these. Twenty eight by twenty eight
+greyscale digits, and the network is seven hundred and eighty four inputs, thirty two
+hidden units, ten outputs. The picture becomes one row of seven hundred and eighty
+four doubles, read left to right and top to bottom. The network is never told that
+neighbouring pixels are related. It gets a flat list of numbers, and it still works.
+
+</Beat>
+
+<Beat id="main-batches">
+
+Training does not run the whole set at once. It shuffles the row order, walks through
+in batches of sixty four, and each batch gets one forward pass, one backward pass and
+one update. Notice the shuffle sits inside the epoch loop, so the batches come out
+different every time round. Same data, different groupings, and that stops the model
+learning anything about the order.
+
+</Beat>
+
+<Beat id="main-loop">
+
+And here it is, all of it, in one function. Shuffle. Take a batch. Forward through
+the stack. Turn the logits into a gradient with that one line carrying the folded-in
+softmax. Backward through the stack. Update every layer. Thats the entire training
+loop, and every piece of it is something we built.
+
+</Beat>
+
+<Beat id="main-next">
+
+Thats the model. The full source, including the argument parsing we skipped past and
+`grad_check.hpp`, is here:
+
+<SourceLink href="https://github.com/Kayaan1234/NeuralComputing/tree/main/Step1">
+  Step1 on GitHub
+</SourceLink>
+
+Next is worth your time. The same network in Python, in about four lines, and every
+decision those four lines quietly made on your behalf.
+
+</Beat>

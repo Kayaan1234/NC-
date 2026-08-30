@@ -100,9 +100,19 @@ function scanLine(line: string, state: ScanState): ScanState {
 export function extractAnchor(source: string, anchor: string): LineRange {
   const lines = source.split('\n')
 
+  // A forward declaration is skipped, and it has to be, because no longer anchor can
+  // separate it from its definition: Step1/main.cpp declares `Data make_xor();` at
+  // the top and defines `Data make_xor() {` four hundred lines below, and the whole
+  // of the first is a prefix of the second. Without this the anchor is ambiguous and
+  // throws, which is at least loud, but there is no anchor string that fixes it.
+  //
+  // Ending in `;` is the test because this function returns the range of a BLOCK. A
+  // declaration has no body to slice, so a line that ends the statement outright can
+  // never be the answer, whether it collides with a definition or not.
   const matches: number[] = []
   for (let i = 0; i < lines.length; i++) {
-    if (lines[i].trim().startsWith(anchor)) matches.push(i)
+    const line = lines[i].trim()
+    if (line.startsWith(anchor) && !line.endsWith(';')) matches.push(i)
   }
 
   if (matches.length === 0) {

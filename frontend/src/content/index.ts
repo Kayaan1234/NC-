@@ -2,9 +2,11 @@
 // menu links to and the training page reads from the URL). A model with no entry
 // here simply has no learn flow: its menu card links straight to training.
 //
-// Two shapes, picked per model — see types.ts. step0 is a narrated walkthrough
-// (one timeline, chapters that seek); step1 is a sequence of .mdx pages. Adding
-// either is one entry here plus its content files — see content/README.md.
+// Two shapes are supported — see types.ts — and both models are currently the same
+// one: a narrated walkthrough, one timeline with chapters that seek. The paged .mdx
+// shape is still live and is what a new model should start as; step0 and step1 were
+// both written that way first. Adding either is one entry here plus its content
+// files — see content/README.md.
 
 import { walkthrough, type ModelContent } from './types'
 import { CHAPTERS as step0Chapters, SCENES as step0Scenes } from './step0/walkthrough'
@@ -13,12 +15,10 @@ import { STEP0_SOURCES } from './step0/source'
 import Step0Stage from '../components/walkthrough/Step0Stage'
 import Step0Narration from './step0/narration.mdx'
 import Step0Snippets from './step0/abstraction.mdx'
-import step1Overview from './step1/1-overview.mdx'
-import step1Matrix from './step1/2-matrix.mdx'
-import step1Math from './step1/3-math.mdx'
-import step1Layer from './step1/4-layer.mdx'
-import step1Mlp from './step1/5-mlp.mdx'
-import step1Main from './step1/6-main.mdx'
+import { CHAPTERS as step1Chapters, SCENES as step1Scenes } from './step1/walkthrough'
+import { STEP1_SOURCES } from './step1/source'
+import Step1Stage from '../components/walkthrough/Step1Stage'
+import Step1Narration from './step1/narration.mdx'
 
 export const MODEL_CONTENT: Record<string, ModelContent> = {
   // The chapter slugs are the ones step0's four .mdx pages used, so every existing
@@ -41,22 +41,20 @@ export const MODEL_CONTENT: Record<string, ModelContent> = {
       Snippets: Step0Snippets,
     },
   }),
-  // In dependency order (matrix before layer, because a layer is two matrices;
-  // layer before MLP, because an MLP is a stack of layers). grad_check.hpp has
-  // no page of its own: it also ships in the source and is covered in a paragraph
-  // rather than a chapter — see the MLP page.
-  step1: {
-    kind: 'pages',
+  // Chapters in dependency order (matrix before layer, because a layer is two
+  // matrices; layer before MLP, because an MLP is a stack of layers), and the slugs
+  // are the ones step1's six .mdx pages used, so old links still resolve.
+  //
+  // grad_check.hpp has no chapter of its own. It ships in the source and gets one
+  // beat in the MLP chapter, which is the right weight for it.
+  step1: walkthrough({
     name: 'Multilayer Perceptron',
-    sections: [
-      { slug: 'overview', title: 'Overview', Body: step1Overview },
-      { slug: 'matrix', title: 'matrix.hpp', Body: step1Matrix },
-      { slug: 'math', title: 'math.hpp', Body: step1Math },
-      { slug: 'layer', title: 'layer.hpp', Body: step1Layer },
-      { slug: 'mlp', title: 'MLP.hpp', Body: step1Mlp },
-      { slug: 'main', title: 'main.cpp', Body: step1Main },
-    ],
-  },
+    chapters: step1Chapters,
+    scenes: step1Scenes,
+    Stage: Step1Stage,
+    Narration: Step1Narration,
+    sources: STEP1_SOURCES,
+  }),
 }
 
 export function getModelContent(id: string | undefined): ModelContent | undefined {
