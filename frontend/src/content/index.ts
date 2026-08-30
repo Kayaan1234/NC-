@@ -1,13 +1,15 @@
 // Registry of authored "learn" content, keyed by backend model_id (the same id the
 // menu links to and the training page reads from the URL). A model with no entry
-// here simply has no learn flow: its menu card links straight to training. Adding a
-// model's explanation is one entry here plus its .mdx pages — see content/README.md.
+// here simply has no learn flow: its menu card links straight to training.
+//
+// Two shapes, picked per model — see types.ts. step0 is a narrated walkthrough
+// (one timeline, chapters that seek); step1 is a sequence of .mdx pages. Adding
+// either is one entry here plus its content files — see content/README.md.
 
 import type { ModelContent } from './types'
-import step0Overview from './step0/1-overview.mdx'
-import step0Math from './step0/2-math.mdx'
-import step0Logreg from './step0/3-logistic_regression.mdx'
-import step0Main from './step0/4-train-loop_and_the_data.mdx'
+import { CHAPTERS as step0Chapters, SCENES as step0Scenes } from './step0/walkthrough'
+import { STEP0_SOURCES } from './step0/source'
+import Step0Narration from './step0/narration.mdx'
 import step1Overview from './step1/1-overview.mdx'
 import step1Matrix from './step1/2-matrix.mdx'
 import step1Math from './step1/3-math.mdx'
@@ -16,20 +18,23 @@ import step1Mlp from './step1/5-mlp.mdx'
 import step1Main from './step1/6-main.mdx'
 
 export const MODEL_CONTENT: Record<string, ModelContent> = {
+  // The chapter slugs are the ones step0's four .mdx pages used, so every existing
+  // /training/step0/learn/:slug link still resolves. It now seeks to that chapter's
+  // timestamp instead of loading a page.
   step0: {
+    kind: 'walkthrough',
     name: 'Single Neuron (Logistic Regression)',
-    sections: [
-      { slug: 'overview', title: 'Overview', Body: step0Overview },
-      { slug: 'math', title: 'math.hpp', Body: step0Math },
-      { slug: 'logistic_regression', title: 'logistic_regression.hpp', Body: step0Logreg },
-      { slug: 'main', title: 'main.cpp', Body: step0Main },
-    ],
+    chapters: step0Chapters,
+    scenes: step0Scenes,
+    Narration: Step0Narration,
+    sources: STEP0_SOURCES,
   },
   // In dependency order (matrix before layer, because a layer is two matrices;
   // layer before MLP, because an MLP is a stack of layers). grad_check.hpp has
-  // no page of its own, matching step0, where it also ships in the source and is
-  // covered in a paragraph rather than a chapter — see the MLP page.
+  // no page of its own: it also ships in the source and is covered in a paragraph
+  // rather than a chapter — see the MLP page.
   step1: {
+    kind: 'pages',
     name: 'Multilayer Perceptron',
     sections: [
       { slug: 'overview', title: 'Overview', Body: step1Overview },

@@ -61,7 +61,14 @@
    * above the rail on every scroll. */
   --h-topbar: 48px;
 
-  /* The entire animation budget. Colour changes on hover/focus, nothing else —
-   * no keyframes exist anywhere in this codebase. */
+  /* The CSS animation budget: colour changes on hover and focus, and that is
+   * nearly all of it. Two things sit outside, both deliberate and both named here
+   * so the next person does not take a stylesheet full of transitions as licence
+   * for a third:
+   *   - `model-landed` in components.css, one keyframe gated behind
+   *     prefers-reduced-motion: no-preference;
+   *   - the step0 walkthrough, whose stage moves because a requestAnimationFrame
+   *     clock re-renders it from state (components/walkthrough/useTimeline.ts).
+   *     It adds no keyframes; what it needs is frame-accurate time it can seek. */
   --t: 100ms;
 }

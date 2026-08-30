@@ -742,3 +742,321 @@
   margin: var(--space-2) 0;
   padding-left: var(--space-5);
 }
+
+/* ---- Walkthrough: the step0 narrated timeline ------------------------------
+ *
+ * A player, built out of the same greys as everything else. There is no accent
+ * hue here and no keyframe anywhere: the stage moves because React re-renders it
+ * from a clock (components/walkthrough/useTimeline.ts), and --t still governs the
+ * only CSS motion in the app, which is colour on hover and focus.
+ *
+ * The two view modes share this stylesheet on purpose. "Read as text" is the same
+ * content laid out as a document, so its code panel and its diagrams should look
+ * identical to the ones in the player rather than becoming a second design. */
+
+.walkthrough__modes {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+
+/* Marked by the text going full strength, the same way .demo__tab is: there is no
+ * accent colour to highlight a selection with. */
+.walkthrough__mode {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-1) var(--space-3);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: color var(--t), border-color var(--t);
+}
+
+/* forms.css fills every <button> on hover with a selector that outranks one
+ * class, so these mode switches turn it off explicitly. They read as a pair of
+ * quiet toggles rather than as form controls. */
+.walkthrough__mode:hover {
+  color: var(--text-dim);
+  background: none;
+  border-color: var(--border-strong);
+}
+
+.walkthrough__mode--on {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.walkthrough {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The stage holds its height across scenes. Beats that are pure maths draw
+ * nothing, and without a floor the transport and the caption would jump up the
+ * page every time one came round. */
+.walkthrough__stage {
+  /* Tall enough for the tallest stage (the training plot, which carries two lines
+   * of log under its SVG). A shorter floor let the transport jump down whenever a
+   * training scene came round, mid-sentence. */
+  min-height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+}
+
+.walkthrough__stage svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.walkthrough__caption {
+  min-height: 7rem;
+  margin-top: var(--space-4);
+}
+
+/* The caption is the one place prose sits inside the player, so it drops the
+ * top margin .prose would otherwise give its first paragraph. */
+.walkthrough__caption > .beat > :first-child {
+  margin-top: 0;
+}
+
+/* Announced once per chapter rather than per beat. See the note in
+ * Walkthrough.tsx about why this is not a live region over the caption. */
+.walkthrough__status {
+  margin: var(--space-3) 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-faint);
+}
+
+/* ---- Transport ------------------------------------------------------------ */
+
+.transport {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.transport__play {
+  background: none;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  color: var(--text);
+  font-size: 0.7rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color var(--t), color var(--t);
+}
+
+.transport__play:hover {
+  border-color: var(--text-dim);
+  background: var(--bg-raised);
+}
+
+.transport__track {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+/* Chapter marks sit behind the range input rather than inside it: the input has
+ * to stay a real range control, and nothing may be layered over it that would
+ * swallow a click meant for the track. */
+.transport__ticks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.transport__tick {
+  position: absolute;
+  top: 50%;
+  width: 1px;
+  height: 10px;
+  margin-top: -5px;
+  background: var(--border-strong);
+}
+
+.transport__range {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  background: none;
+  cursor: pointer;
+}
+
+.transport__range::-webkit-slider-runnable-track {
+  height: 2px;
+  background: var(--border);
+}
+
+.transport__range::-moz-range-track {
+  height: 2px;
+  background: var(--border);
+}
+
+.transport__range::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 10px;
+  height: 10px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: var(--text);
+}
+
+.transport__range::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border: none;
+  border-radius: 50%;
+  background: var(--text);
+}
+
+.transport__range:focus-visible {
+  outline: 1px solid var(--text-dim);
+  outline-offset: 4px;
+}
+
+/* Tabular figures so the elapsed readout does not jitter as the digits change,
+ * the same reason .demo__weights asks for them. */
+.transport__time {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.transport__elapsed {
+  color: var(--text-dim);
+}
+
+.transport__rates {
+  flex: none;
+  display: flex;
+  gap: var(--space-1);
+}
+
+.transport__rate {
+  background: none;
+  border: none;
+  padding: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: color var(--t);
+}
+
+.transport__rate:hover {
+  color: var(--text-dim);
+  background: none;
+}
+
+.transport__rate--on {
+  color: var(--text);
+}
+
+/* ---- Code panel ----------------------------------------------------------- */
+
+.codepanel {
+  margin-top: var(--space-4);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+/* Holds the space when a scene shows no code, so the page does not resize
+ * underneath a reader between beats. */
+.codepanel--empty {
+  min-height: 3rem;
+  background: none;
+  border: none;
+}
+
+.codepanel__name {
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-faint);
+}
+
+/* An aside is code that is deliberately NOT in this project. It says so, and it
+ * says so in the same place the filename would otherwise be, so the two can
+ * never be confused for one another. */
+.codepanel__name--aside {
+  font-style: italic;
+}
+
+.codepanel__code {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  /* Ligatures off, as everywhere code is shown: != must not become a glyph. */
+  font-variant-ligatures: none;
+}
+
+.codepanel__code--aside {
+  color: var(--text-dim);
+}
+
+.codepanel__line {
+  display: block;
+  transition: opacity var(--t);
+}
+
+/* Dimmed rather than hidden: the lines a beat is not talking about are still the
+ * context that makes the highlighted one make sense. */
+.codepanel__line--dim {
+  opacity: 0.35;
+}
+
+/* ---- Training stage ------------------------------------------------------- */
+
+.training-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.training-stage__log,
+.training-stage__weights {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.training-stage__weights {
+  color: var(--text-faint);
+}
+
+/* ---- Read as text --------------------------------------------------------- */
+
+.walkthrough-text .beat--text {
+  margin-bottom: var(--space-6);
+}
+
+.walkthrough-text .walkthrough__stage--static {
+  min-height: 0;
+  margin: var(--space-4) 0;
+  justify-content: flex-start;
+}

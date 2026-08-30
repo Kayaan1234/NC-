@@ -1,0 +1,292 @@
+import Beat from '../../components/walkthrough/Beat'
+import SourceLink from '../../components/SourceLink'
+
+{/*
+  The words of the step0 walkthrough. One <Beat> per scene in walkthrough.ts, and
+  the ids have to match exactly: walkthrough.test.ts compares the two sets in both
+  directions, so a rename here that is not made there fails the suite.
+
+  This is MDX rather than strings in the manifest so that the maths below goes
+  through remark-math and rehype-katex at build time, the same as every other page,
+  and so the voice rules in content/README.md still govern it. Read them before
+  editing: no em-dashes, no "it is not X, it is Y", and write like you talk.
+
+  In the player only the active beat renders. In "Read as text" they all render, in
+  order, which is where the fuller read lives.
+*/}
+
+<Beat id="overview-inputs">
+
+Every neuron starts with its inputs. There are four of them drawn here, $x_1$ up to
+$x_4$, but there is nothing special about four. A neuron takes as many as you hand it.
+
+</Beat>
+
+<Beat id="overview-weights">
+
+Each input gets its own weight. The weights are the part the model actually learns:
+a large one means that input matters a lot, and a weight near zero means the neuron
+has decided to more or less ignore it.
+
+</Beat>
+
+<Beat id="overview-sum">
+
+Multiply each input by its weight and add the results together. Thats a dot product,
+and it is the only real arithmetic in a forward pass.
+
+</Beat>
+
+<Beat id="overview-bias">
+
+Then we add one more number, the bias. It belongs to the neuron rather than to any
+input, and it lets the neuron shift its output up or down on its own.
+
+</Beat>
+
+<Beat id="overview-sigmoid">
+
+Finally the total goes through a nonlinearity. Here we use the sigmoid, which
+squashes whatever you give it into the range 0 to 1, so the answer can be read as a
+probability.
+
+</Beat>
+
+<Beat id="overview-why-nonlinear">
+
+You might reasonably wonder why we bother with that last step. Without it the whole
+thing is a weighted sum, and stacking weighted sums on top of each other just gives
+you another weighted sum. A hundred layers would collapse straight back down to one.
+The nonlinearity is what stops that collapse, and it is the defining characteristic
+of neural computing.
+
+</Beat>
+
+<Beat id="overview-plan">
+
+So thats the object we are building. For the rest of this we will write it in C++ a
+piece at a time, and every piece starts with the maths it encodes.
+
+</Beat>
+
+<Beat id="math-sigmoid-formula">
+
+Here is the sigmoid written out properly.
+
+$$
+\sigma(x) = \frac{1}{1 + e^{-x}}
+$$
+
+Give it a large negative number and you get something just above 0. Give it a large
+positive one and you get something just below 1. It approaches both ends without
+ever arriving.
+
+</Beat>
+
+<Beat id="math-sigmoid-code">
+
+And here is that formula as C++. One line, and it reads the same way round as the
+maths does: one over one plus $e$ to the minus $x$. Notice the type is `double`
+everywhere, which we keep consistent across every file in the project.
+
+</Beat>
+
+<Beat id="math-sigmoid-derivative">
+
+The reason we reach for sigmoid is what happens when you differentiate it.
+
+$$
+\frac{d\sigma}{dx} = \sigma(x)\bigl(1 - \sigma(x)\bigr)
+$$
+
+The derivative is written entirely in terms of the value we already worked out on
+the way forward, so the backward pass gets it for free. One thing worth noticing
+while we are here: the steepest this curve ever gets is 0.25, at the marked point.
+Stack a lot of these in a row and the gradient reaching the early layers becomes
+very small, but thats a problem for another rung.
+
+</Beat>
+
+<Beat id="math-dot-formula">
+
+The other thing `math.hpp` owes us is the dot product.
+
+$$
+\mathbf{a} \cdot \mathbf{b} = \sum_{i=0}^{n-1} a_i b_i
+$$
+
+Pair the elements up, multiply each pair, add the lot together.
+
+</Beat>
+
+<Beat id="math-dot-numpy">
+
+If you have written any machine learning in Python, you know this as one function
+call. Thats exactly the gap this project is trying to close. The call is easy to
+reach for, and what follows is what it does underneath.
+
+</Beat>
+
+<Beat id="math-dot-code">
+
+Written by hand it is a loop and an accumulator. Both vectors come in as const
+references, since we never change them and we would rather not copy them on every
+single call. The size check earns its place too: two vectors of different lengths
+would otherwise read off the end of the shorter one.
+
+</Beat>
+
+<Beat id="logreg-init">
+
+Now the neuron itself. When we build one, the weights start as small random numbers
+from a gaussian, scaled by one over the square root of the number of inputs. That
+scale is doing real work. It keeps the initial weighted sum small however many
+inputs there are, which lands the sigmoid near the middle of its range where it is
+steep, instead of out on a flat tail where it barely learns at all.
+
+</Beat>
+
+<Beat id="logreg-forward">
+
+The forward pass is the picture we drew at the start, in one line. Dot product, add
+the bias, through the sigmoid. Both functions from `math.hpp`, each used once.
+
+</Beat>
+
+<Beat id="logreg-loss-math">
+
+Next we need to say how wrong an answer is. Write $p$ for the prediction and $y$ for
+the true label, which is either 0 or 1.
+
+$$
+L = -\bigl[\, y \log p + (1 - y) \log (1 - p) \,\bigr]
+$$
+
+Only one of those two terms is ever alive, because the label switches the other one
+off.
+
+</Beat>
+
+<Beat id="logreg-loss-clamp">
+
+Have a look at what that loss does as the model becomes confident and wrong: it
+climbs without any bound at all. A prediction of exactly 0 or exactly 1 would hand
+$\log$ a zero and poison the whole epochs average. The clamp on the highlighted line
+is what keeps that from ever happening.
+
+</Beat>
+
+<Beat id="logreg-derivative">
+
+To train we want the derivative of the loss with respect to the raw sum $z$, the
+value before the sigmoid. Differentiating with respect to the prediction gives
+
+$$
+\frac{\partial L}{\partial p} = -\frac{y}{p} + \frac{1 - y}{1 - p} = \frac{p - y}{p\,(1 - p)}
+$$
+
+which looks like it is about to get awkward, because of that denominator.
+
+</Beat>
+
+<Beat id="logreg-cancellation">
+
+Then we chain it with the sigmoid derivative from earlier, $\frac{dp}{dz} = p(1-p)$.
+
+$$
+\frac{\partial L}{\partial z}
+= \frac{p - y}{p\,(1 - p)} \cdot p\,(1 - p)
+= p - y
+$$
+
+The denominator cancels completely. The gradient of a sigmoid fed into binary cross
+entropy is the prediction minus the label, with nothing left to divide by and
+nothing that can blow up.
+
+</Beat>
+
+<Beat id="logreg-gradient-code">
+
+Which is why the backward pass looks like this. The highlighted line is that $p - y$,
+straight out of the cancellation. Have a look for a call to a sigmoid derivative in
+here: there is not one, because the algebra already did that work. Doing the calculus
+properly is what made the code short.
+
+</Beat>
+
+<Beat id="logreg-update">
+
+Update is gradient descent itself. For each weight, take a small step against its
+gradient, then do the same for the bias. How big a step is set by the learning rate.
+
+</Beat>
+
+<Beat id="logreg-learning-rate">
+
+That learning rate is worth getting right. Too small and each step barely moves the
+weight, so you run out of epochs before you get anywhere. Too large and every step
+jumps clean over the minimum and lands further away than it started.
+
+</Beat>
+
+<Beat id="main-epoch">
+
+`main.cpp` puts the pieces in a loop. One epoch is one gradient over the whole
+dataset followed by one update, so the two highlighted lines are the entire training
+algorithm. Everything else in there is printing.
+
+</Beat>
+
+<Beat id="main-training-tiny">
+
+Here it is running, on three points that a straight line can separate. The weights
+are the line: they set its slope, and the bias slides it off the origin. Watch the
+line move as those numbers change, because that is all training is.
+
+</Beat>
+
+<Beat id="main-accuracy">
+
+Accuracy counts how many it got right, taking anything at or above a half as a 1.
+For a model this small we train and score on the same data, which is not how you
+would evaluate anything real, though it is enough to show where this one runs out of
+road.
+
+</Beat>
+
+<Beat id="main-xor-points">
+
+Which brings us to XOR. Four points, and the label is 1 when exactly one of the two
+inputs is 1. The filled dots sit on one diagonal and the hollow ones on the other.
+
+</Beat>
+
+<Beat id="main-xor-boundary">
+
+A single neuron draws one straight line and answers by which side you land on. Here
+is the best line anyone can draw through these four points. It gets three of them,
+and the ringed one is beyond it. Tilt it, shift it, try whatever you like: some point
+always ends up on the wrong side, so 75% is the ceiling.
+
+</Beat>
+
+<Beat id="main-xor-training">
+
+So this is what training on XOR looks like. The loss drops a little, then settles
+around 0.6931, which is $\ln 2$, exactly the loss of a coin flip. One straight line
+has run out of things it can say, and that is the reason Rung 1 adds a hidden layer.
+
+</Beat>
+
+<Beat id="main-next">
+
+That is the whole model: forward, loss, gradient, update, in a loop. This walkthrough
+picked out the parts where the maths turns into code, so there is plenty it went past:
+the driver code, the blobs dataset, the gradient checker. All of it is on GitHub, and
+it is worth reading now that you know what you are looking at.
+
+<SourceLink href="https://github.com/Kayaan1234/NeuralComputing/tree/main/Step0">
+  Step0 on GitHub
+</SourceLink>
+
+</Beat>

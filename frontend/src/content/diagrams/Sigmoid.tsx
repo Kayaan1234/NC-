@@ -34,7 +34,12 @@ const HALO = {
   paintOrder: 'stroke' as const,
 }
 
-export default function Sigmoid() {
+/**
+ * `tangent` adds the line through the inflection with slope 0.25, for the beat of
+ * the step0 walkthrough that talks about the derivative. Off by default, so the
+ * figure renders exactly as it did before the walkthrough existed.
+ */
+export default function Sigmoid({ tangent = false }: { tangent?: boolean } = {}) {
   const s = scale(AREA)
   const yZero = s.sy(0)
   const yOne = s.sy(1)
@@ -120,6 +125,39 @@ export default function Sigmoid() {
 
         {/* The curve itself. */}
         <path d={curve(AREA, s, sigma)} strokeWidth="1.75" />
+
+        {/* The tangent at the inflection, drawn only when the prose is on the
+            derivative. Its slope IS 0.25, computed from the same scale as the
+            curve rather than eyeballed, so the claim in the narration is something
+            the reader can check against the axes. */}
+        {tangent && (
+          <g opacity="0.7">
+            {(() => {
+              // y = 0.25x + 0.5, clipped to a span either side of the origin that
+              // stays inside the plot's y range.
+              const span = 1.7
+              const at = (x: number) => 0.25 * x + 0.5
+              return (
+                <path
+                  d={`M${s.sx(-span)} ${s.sy(at(-span))}L${s.sx(span)} ${s.sy(at(span))}`}
+                  strokeDasharray="4 3"
+                  strokeWidth="1.25"
+                />
+              )
+            })()}
+            <text
+              x={s.sx(2.1)}
+              y={s.sy(0.5) - 8}
+              fill="currentColor"
+              stroke="none"
+              fontSize="10"
+              opacity="0.85"
+              style={HALO}
+            >
+              slope 0.25
+            </text>
+          </g>
+        )}
 
         {/* The inflection point, where σ(0) = 0.5 and the derivative is at its
             maximum of 0.25. */}

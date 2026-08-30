@@ -1,5 +1,6 @@
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { getModelContent } from '../content'
+import Walkthrough from '../components/walkthrough/Walkthrough'
 
 // The "read about the model" flow, reached from the /training menu for any model
 // that has authored content (see content/index.ts). One route component serves the
@@ -24,6 +25,14 @@ export default function Learn() {
   // No authored content — e.g. someone typed a learn URL for a model that has none.
   // Fall through to the training page, matching what the menu links such a model to.
   if (!modelId || !content) return <Navigate to={`/training/${modelId ?? ''}`} replace />
+
+  // A walkthrough model is one continuous timeline rather than a sequence of pages,
+  // and its rail seeks instead of navigating, so it owns its own layout. Everything
+  // below this line is the paged flow, unchanged, and TypeScript narrows `content`
+  // to PagedContent for it.
+  if (content.kind === 'walkthrough') {
+    return <Walkthrough modelId={modelId} content={content} chapterSlug={slug} />
+  }
 
   const { sections } = content
   const index = slug ? sections.findIndex((s) => s.slug === slug) : 0
