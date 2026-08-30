@@ -1060,3 +1060,311 @@
   margin: var(--space-4) 0;
   justify-content: flex-start;
 }
+
+/* ---- Abstraction ladder: the closing page of a model's learn flow ----------
+ *
+ * One model at four levels, most abstract at the top and your own code at the
+ * bottom, with a panel beside each rung naming what that rung decided for you.
+ * The ladder is the page's vertical axis rather than a control, so there is
+ * nothing to drag and nothing that moves.
+ *
+ * Wider than the reading measure the rest of .learn-body uses, because a code
+ * block and its defaults panel have to sit side by side to be compared at all.
+ * That is the whole point of the layout, so it earns the extra width. */
+
+.learn-body > .ladder,
+.learn-body > .ladder__concepts,
+.learn-body > .ladder__question,
+.learn-body > .tally {
+  max-width: min(100%, 64rem);
+}
+
+/* The fourth instance of the house tab pattern (see .demo__tab,
+ * .walkthrough__mode, .transport__rate): buttons in a role="group", selection
+ * marked by the text going full strength rather than by a fill, because there is
+ * no accent hue to fill with. */
+.ladder__concepts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: var(--space-6) auto var(--space-5);
+}
+
+.ladder__concept {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-1) var(--space-3);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: color var(--t), border-color var(--t);
+}
+
+.ladder__concept:hover {
+  color: var(--text-dim);
+  background: none;
+  border-color: var(--border-strong);
+}
+
+.ladder__concept--on {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.ladder__question {
+  margin: 0 auto var(--space-5);
+  font-family: var(--font-sans);
+  font-size: 1.05rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.ladder {
+  list-style: none;
+  margin: 0 auto;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* The rule down the left is the ladder itself: one continuous line from the most
+ * abstract rung to your own code. */
+.ladder__rung {
+  border-left: 1px solid var(--border);
+  padding-left: var(--space-4);
+}
+
+.ladder__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.ladder__label {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: var(--text);
+}
+
+.ladder__blurb {
+  font-size: 0.8125rem;
+  color: var(--text-dim);
+}
+
+.ladder__provenance {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--text-faint);
+}
+
+.ladder__provenance a {
+  color: var(--text-faint);
+}
+
+/* Code left, defaults right. They collapse to one column early: below this the
+ * two would each be too narrow to read, and a defaults note is a sentence. */
+.ladder__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 21rem);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@media (max-width: 62rem) {
+  .ladder__body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.ladder__code .codepanel {
+  margin-top: 0;
+}
+
+/* An authored snippet arrives as MDX, so it brings its own <pre> from the shiki
+ * pass and this wrapper must not add a second layer of padding around it. */
+.codepanel__code--snippet {
+  padding: 0;
+}
+
+.codepanel__code--snippet pre {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  background: none;
+  overflow-x: auto;
+}
+
+/* ---- The defaults panel --------------------------------------------------- */
+
+.defaults {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-3) var(--space-4);
+}
+
+/* An empty panel is the page's whole argument arriving, so it says so out loud
+ * rather than rendering as a blank box that reads like missing content. */
+.defaults--empty {
+  border-style: dashed;
+  display: flex;
+  align-items: center;
+}
+
+.defaults__none {
+  font-family: var(--font-sans);
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--ok);
+}
+
+.defaults__title {
+  margin: 0 0 var(--space-3);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+/* A <dl>, never a <table>. There is no table CSS in this app, and these are named
+ * decisions rather than tabulated data. */
+.defaults__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.defaults__name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.defaults__key {
+  color: var(--text);
+}
+
+.defaults__value {
+  color: var(--text-dim);
+}
+
+.defaults__note {
+  /* Prose, so it takes the sans face. Outside .prose the page inherits mono from
+   * the body, and a five line explanation set in a code face reads as output
+   * rather than as someone talking to you. */
+  font-family: var(--font-sans);
+  margin: var(--space-1) 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--text-dim);
+}
+
+/* The verdict, and the reason there are three of them. --ok where the library
+ * chose exactly what you chose, --warn where it went its own way, plain grey
+ * where the idea has no counterpart in your code. --err is deliberately not used:
+ * a difference is not a fault, and colouring it like one would turn the page into
+ * an argument against libraries. */
+.defaults__verdict {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--text-faint);
+  margin-bottom: var(--space-1);
+}
+
+.defaults__item--matches .defaults__verdict {
+  color: var(--ok);
+}
+
+.defaults__item--differs .defaults__verdict {
+  color: var(--warn);
+}
+
+/* ---- The tally ------------------------------------------------------------ */
+
+.tally {
+  margin: var(--space-8) auto 0;
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--border);
+}
+
+.tally__title {
+  margin: 0 0 var(--space-3);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.tally__list {
+  list-style: none;
+  margin: 0 0 var(--space-5);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: 30rem;
+}
+
+.tally__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 9rem 4rem;
+  gap: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: var(--text-dim);
+}
+
+/* The column headings. Small and faint: they label the numbers without competing
+ * with them, and the row is not a table header because this is not a table. */
+.tally__row--head {
+  font-size: 0.6875rem;
+  color: var(--text-faint);
+  margin-bottom: var(--space-1);
+}
+
+.tally__row--head > span:not(:first-child),
+.tally__count {
+  text-align: right;
+}
+
+.tally__count {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The total is context for the count beside it rather than the headline, so it
+ * recedes. The number that carries the argument is how many DIFFER. */
+.tally__count--quiet {
+  color: var(--text-faint);
+}
+
+.tally__note {
+  font-family: var(--font-sans);
+  margin: 0 0 var(--space-4);
+  max-width: var(--w-prose);
+  color: var(--text-dim);
+}
+
+.tally__note:last-child {
+  margin-bottom: 0;
+}
+
+/* The epilogue's rail entry. It leaves the timeline rather than moving inside it,
+ * so it sits under a rule instead of alongside the chapters. */
+.learn-rail__item--after {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+  border-left-color: transparent;
+}

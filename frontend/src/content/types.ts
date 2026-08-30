@@ -23,6 +23,7 @@
 
 import type { ComponentType } from 'react'
 
+import type { Abstraction } from './abstraction/types'
 import type { Chapter, SourceBundle } from './walkthrough/types'
 import type { Step0Scene } from './step0/walkthrough'
 
@@ -42,6 +43,28 @@ interface ModelContentBase {
   // draws code takes this as a value, so no rendering component is tied to one
   // model. Optional because a model can have prose with no code panels.
   sources?: SourceBundle
+  // An optional closing page, reached from the rail after the main flow. It sits on
+  // the BASE rather than on one variant because both shapes want one: step0 is a
+  // walkthrough and step1 is pages, and the Python comparison is worth having on
+  // either. See content/abstraction/types.ts.
+  epilogue?: Epilogue
+}
+
+/**
+ * The closing page of a model's learn flow: the same model expressed at four levels
+ * of abstraction, with the defaults each library filled in on the reader's behalf.
+ *
+ * `slug` is a URL segment alongside the chapter/section slugs, so keep it stable and
+ * distinct from them.
+ */
+export interface Epilogue {
+  slug: string
+  title: string
+  abstraction: Abstraction
+  // The compiled MDX carrying this page's Python and NumPy snippets, one <Snippet>
+  // per authored cell. Code lives in MDX so the existing build-time shiki pass
+  // highlights it, the same reason narration lives there for KaTeX.
+  Snippets: ComponentType
 }
 
 export interface PagedContent extends ModelContentBase {

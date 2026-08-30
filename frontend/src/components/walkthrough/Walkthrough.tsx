@@ -45,7 +45,7 @@ export default function Walkthrough({
   content: WalkthroughContent
   chapterSlug?: string
 }) {
-  const { chapters, scenes, Narration, sources } = content
+  const { chapters, scenes, Narration, sources, epilogue } = content
   const navigate = useNavigate()
   const playerRef = useRef<HTMLDivElement>(null)
 
@@ -170,6 +170,16 @@ export default function Walkthrough({
               {c.title}
             </button>
           ))}
+          {/* A Link, not a seek button: this one leaves the timeline rather than
+              moving inside it, and it should feel like a different kind of step. */}
+          {epilogue && (
+            <Link
+              to={`/training/${modelId}/learn/${epilogue.slug}`}
+              className="learn-rail__item learn-rail__item--after"
+            >
+              {epilogue.title}
+            </Link>
+          )}
         </div>
 
         <div className="learn-rail__foot">

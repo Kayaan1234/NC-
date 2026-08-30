@@ -1,0 +1,178 @@
+import Snippet from '../../components/abstraction/Snippet'
+
+{/*
+  The Python and NumPy code for step0's abstraction ladder. One <Snippet> per
+  authored cell in abstraction.ts, and the ids have to match exactly:
+  abstraction.test.ts compares the two sets in both directions.
+
+  These live here rather than as strings in the manifest so the build-time shiki
+  pass highlights them, the same reason the walkthrough's narration lives in MDX for
+  KaTeX. Nothing here is executed and nothing here ships in the repo as runnable
+  Python, so the page labels every one of these as written for the explanation.
+
+  Voice rules in content/README.md apply to the comments too, since a reader sees
+  them: no em-dashes, no "it is not X, it is Y", write like you talk.
+*/}
+
+{/* ---- Initialisation ---- */}
+
+<Snippet id="sklearn-init">
+
+```python
+from sklearn.linear_model import LogisticRegression
+
+model = LogisticRegression()
+# there is no argument here for choosing an init
+```
+
+</Snippet>
+
+<Snippet id="pytorch-init">
+
+```python
+import torch.nn as nn
+
+layer = nn.Linear(2, 1)
+# layer.weight and layer.bias are already filled in
+```
+
+</Snippet>
+
+<Snippet id="numpy-init">
+
+```python
+import numpy as np
+
+rng = np.random.default_rng(42)
+w = rng.normal(0.0, 1.0 / np.sqrt(2), size=2)
+b = 0.0
+```
+
+</Snippet>
+
+{/* ---- Forward pass ---- */}
+
+<Snippet id="sklearn-forward">
+
+```python
+p = model.predict_proba(X)[:, 1]
+yhat = model.predict(X)  # cuts at 0.5
+```
+
+</Snippet>
+
+<Snippet id="pytorch-forward">
+
+```python
+z = layer(x)          # the weighted sum, and it stops there
+p = torch.sigmoid(z)  # only when you actually want a probability
+```
+
+</Snippet>
+
+<Snippet id="numpy-forward">
+
+```python
+def sigmoid(z):
+    return 1.0 / (1.0 + np.exp(-z))
+
+p = sigmoid(X @ w + b)
+```
+
+</Snippet>
+
+{/* ---- Loss ---- */}
+
+<Snippet id="sklearn-loss">
+
+```python
+# you never write the loss down. these two choose it for you
+LogisticRegression(penalty="l2", C=1.0)
+```
+
+</Snippet>
+
+<Snippet id="pytorch-loss">
+
+```python
+loss_fn = nn.BCEWithLogitsLoss()
+
+loss = loss_fn(z, y)  # hand it the logit, so no sigmoid above
+```
+
+</Snippet>
+
+<Snippet id="numpy-loss">
+
+```python
+eps = 1e-7
+p = np.clip(p, eps, 1.0 - eps)
+loss = -np.mean(y * np.log(p) + (1 - y) * np.log(1 - p))
+```
+
+</Snippet>
+
+{/* ---- Optimiser ---- */}
+
+<Snippet id="sklearn-optimiser">
+
+```python
+model.fit(X, y)
+# lbfgs, up to 100 iterations, and no learning rate anywhere
+```
+
+</Snippet>
+
+<Snippet id="pytorch-optimiser">
+
+```python
+opt = torch.optim.SGD(layer.parameters(), lr=0.5)
+
+loss.backward()  # fills in every .grad
+opt.step()       # w -= lr * w.grad
+opt.zero_grad()
+```
+
+</Snippet>
+
+<Snippet id="numpy-optimiser">
+
+```python
+error = p - y                      # the cancellation, again
+grad_w = X.T @ error / len(y)
+grad_b = error.mean()
+
+w -= lr * grad_w
+b -= lr * grad_b
+```
+
+</Snippet>
+
+{/* ---- Stopping ---- */}
+
+<Snippet id="sklearn-stopping">
+
+```python
+LogisticRegression(tol=1e-4, max_iter=100)
+# it decides. you find out afterwards from model.n_iter_
+```
+
+</Snippet>
+
+<Snippet id="pytorch-stopping">
+
+```python
+for epoch in range(500):
+    ...
+```
+
+</Snippet>
+
+<Snippet id="numpy-stopping">
+
+```python
+for epoch in range(500):
+    ...
+```
+
+</Snippet>

@@ -8,8 +8,10 @@
 
 import type { ModelContent } from './types'
 import { CHAPTERS as step0Chapters, SCENES as step0Scenes } from './step0/walkthrough'
+import { STEP0_ABSTRACTION } from './step0/abstraction'
 import { STEP0_SOURCES } from './step0/source'
 import Step0Narration from './step0/narration.mdx'
+import Step0Snippets from './step0/abstraction.mdx'
 import step1Overview from './step1/1-overview.mdx'
 import step1Matrix from './step1/2-matrix.mdx'
 import step1Math from './step1/3-math.mdx'
@@ -28,6 +30,15 @@ export const MODEL_CONTENT: Record<string, ModelContent> = {
     scenes: step0Scenes,
     Narration: Step0Narration,
     sources: STEP0_SOURCES,
+    // The closing page: the same neuron as a Python one-liner, and every decision
+    // that one-liner made without asking. `python` is a slug alongside the chapter
+    // slugs, so it must stay distinct from all of them.
+    epilogue: {
+      slug: 'python',
+      title: 'The same model in Python',
+      abstraction: STEP0_ABSTRACTION,
+      Snippets: Step0Snippets,
+    },
   },
   // In dependency order (matrix before layer, because a layer is two matrices;
   // layer before MLP, because an MLP is a stack of layers). grad_check.hpp has
