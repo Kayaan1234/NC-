@@ -6,10 +6,11 @@
 // (one timeline, chapters that seek); step1 is a sequence of .mdx pages. Adding
 // either is one entry here plus its content files — see content/README.md.
 
-import type { ModelContent } from './types'
+import { walkthrough, type ModelContent } from './types'
 import { CHAPTERS as step0Chapters, SCENES as step0Scenes } from './step0/walkthrough'
 import { STEP0_ABSTRACTION } from './step0/abstraction'
 import { STEP0_SOURCES } from './step0/source'
+import Step0Stage from '../components/walkthrough/Step0Stage'
 import Step0Narration from './step0/narration.mdx'
 import Step0Snippets from './step0/abstraction.mdx'
 import step1Overview from './step1/1-overview.mdx'
@@ -23,11 +24,11 @@ export const MODEL_CONTENT: Record<string, ModelContent> = {
   // The chapter slugs are the ones step0's four .mdx pages used, so every existing
   // /training/step0/learn/:slug link still resolves. It now seeks to that chapter's
   // timestamp instead of loading a page.
-  step0: {
-    kind: 'walkthrough',
+  step0: walkthrough({
     name: 'Single Neuron (Logistic Regression)',
     chapters: step0Chapters,
     scenes: step0Scenes,
+    Stage: Step0Stage,
     Narration: Step0Narration,
     sources: STEP0_SOURCES,
     // The closing page: the same neuron as a Python one-liner, and every decision
@@ -39,7 +40,7 @@ export const MODEL_CONTENT: Record<string, ModelContent> = {
       abstraction: STEP0_ABSTRACTION,
       Snippets: Step0Snippets,
     },
-  },
+  }),
   // In dependency order (matrix before layer, because a layer is two matrices;
   // layer before MLP, because an MLP is a stack of layers). grad_check.hpp has
   // no page of its own: it also ships in the source and is covered in a paragraph

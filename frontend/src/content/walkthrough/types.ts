@@ -35,6 +35,26 @@ export interface SourceBundle {
   highlighted: Record<string, string[]>
 }
 
+/**
+ * The one thing every model's stage union has to agree on.
+ *
+ * A stage describes what the picture shows, and what it can show is entirely
+ * model-specific: step0 draws a neuron and a sigmoid, step1 draws matrices and a
+ * layer stack. So the player cannot know the variants. It only needs to know two
+ * things, and both are encoded here.
+ *
+ * First, that there IS a `kind` to switch on. Second, and this is the part worth
+ * stating out loud, that a stage drawing nothing is spelled `'none'`. The player
+ * holds the previous picture across such a scene rather than blanking (see
+ * Walkthrough.tsx), and it decides that by comparing this exact string. A model
+ * spelling it 'empty' would compile, render a scene with no picture, and shift the
+ * whole page mid-sentence. Use `draws` rather than writing the comparison again.
+ */
+export type StageState = { kind: string }
+
+/** Whether a stage has a picture of its own, or should hold the previous one. */
+export const draws = (stage: StageState): boolean => stage.kind !== 'none'
+
 /** A chapter is a rail entry and a seek target. `slug` IS the URL segment. */
 export interface Chapter<Slug extends string = string> {
   slug: Slug

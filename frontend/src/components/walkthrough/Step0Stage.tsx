@@ -6,7 +6,14 @@ import { XorBoundary, XorPoints } from '../../content/diagrams/Xor'
 import type { Step0Stage } from '../../content/step0/walkthrough'
 import TrainingStage from './TrainingStage'
 
-// What the top half of the player draws, for one scene.
+// What the top half of the player draws, for one step0 scene.
+//
+// Per-model on purpose. The player, the clock, the transport and the code panel are
+// all generic and take a walkthrough as data, but deciding that `{ kind: 'sigmoid' }`
+// means <Sigmoid> is the one part that cannot be: it is a mapping from this model's
+// vocabulary to this model's diagrams. So each model brings its own, handed to the
+// registry through `walkthrough()` in content/types.ts, and step1 has a sibling of
+// this file rather than a branch inside it.
 //
 // Every branch is an existing diagram from content/diagrams/ or, for the training
 // scenes, one built on the same plot.ts helpers. Reusing them rather than drawing
@@ -18,7 +25,7 @@ import TrainingStage from './TrainingStage'
 // use it; the rest ignore it and simply hold, which is what a figure being talked
 // about should do.
 
-export default function Stage({ stage, progress }: { stage: Step0Stage; progress: number }) {
+export default function Step0Stage({ stage, progress }: { stage: Step0Stage; progress: number }) {
   switch (stage.kind) {
     case 'neuron':
       return <Neuron reveal={stage.reveal} progress={progress} />

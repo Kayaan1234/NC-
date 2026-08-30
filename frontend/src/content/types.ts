@@ -24,8 +24,7 @@
 import type { ComponentType } from 'react'
 
 import type { Abstraction } from './abstraction/types'
-import type { Chapter, SourceBundle } from './walkthrough/types'
-import type { Step0Scene } from './step0/walkthrough'
+import type { Chapter, Scene, SourceBundle, StageState } from './walkthrough/types'
 
 // One page of a paged flow. The first section of every model is the overview; each
 // subsequent section corresponds to one source file.
@@ -82,10 +81,49 @@ export interface WalkthroughContent extends ModelContentBase {
   chapters: Chapter[]
   // Ordered. Durations are summed to derive every start time, so this array is the
   // only place the running order is declared.
-  scenes: Step0Scene[]
+  //
+  // Stored erased to StageState: the player places scenes on a clock and hands each
+  // one's stage back to the model's own Stage component, and neither job needs to
+  // know the variants. Build one of these with `walkthrough()` below rather than by
+  // hand, which is what keeps the erasure honest.
+  scenes: Scene<StageState>[]
+  // What the top half of the player draws. Per-model by nature: choosing which
+  // diagram a stage means is the one part of a walkthrough that cannot be generic.
+  Stage: ComponentType<{ stage: StageState; progress: number }>
   // The compiled narration MDX: every <Beat> for this walkthrough, rendered whole
   // and filtered by the active beat. See components/walkthrough/Beat.tsx.
   Narration: ComponentType
+}
+
+/**
+ * Build a walkthrough entry, tying a model's scenes to the component that draws them.
+ *
+ * This exists for the same reason `sources` is a value rather than an import: an
+ * earlier version typed `scenes` as step0's own scene type and had the player import
+ * step0's Stage by name, which quietly made the whole player step0-only.
+ *
+ * `S` is inferred from BOTH `scenes` and `Stage`, so handing step1's scenes to
+ * step0's Stage fails here at the call site rather than rendering the wrong picture.
+ * That inference is the entire point of the function; the single cast below is only
+ * sound because of it. React checks props contravariantly, so a component that draws
+ * one model's stages is genuinely not a component that draws any model's stages. What
+ * makes the cast safe is narrower and worth stating: the player only ever passes a
+ * stage it read out of `scenes`, and every one of those is an `S` by this signature.
+ */
+export function walkthrough<S extends StageState>(content: {
+  name: string
+  chapters: Chapter[]
+  scenes: Scene<S>[]
+  Stage: ComponentType<{ stage: S; progress: number }>
+  Narration: ComponentType
+  sources?: SourceBundle
+  epilogue?: Epilogue
+}): WalkthroughContent {
+  return {
+    kind: 'walkthrough',
+    ...content,
+    Stage: content.Stage as ComponentType<{ stage: StageState; progress: number }>,
+  }
 }
 
 export type ModelContent = PagedContent | WalkthroughContent

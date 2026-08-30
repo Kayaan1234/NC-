@@ -3,14 +3,14 @@ import { Link, useNavigate } from 'react-router-dom'
 
 import { NarrationProvider } from './Beat'
 import CodePanel from './CodePanel'
-import Stage from './Stage'
 import Transport from './Transport'
 import { useTimeline } from './useTimeline'
 import { chapterAt, chapterStart, sceneAt, totalDuration } from '../../content/walkthrough/timeline'
+import { draws } from '../../content/walkthrough/types'
 import type { WalkthroughContent } from '../../content/types'
 import type { NarrationMode } from '../../content/walkthrough/types'
 
-// The step0 learn flow: one continuous walkthrough instead of four pages.
+// A walkthrough learn flow: one continuous timeline instead of a stack of pages.
 //
 // The rail is still the rail, but its entries SEEK rather than navigate. That is the
 // whole difference between this and the page-based flow: there is one document and
@@ -25,8 +25,12 @@ import type { NarrationMode } from '../../content/walkthrough/types'
 // can be in one and missing from the other.
 //
 // Reduced motion starts in TEXT. The house rule is that reduced motion renders the
-// finished state rather than a faster animation, and for a ten minute timeline the
+// finished state rather than a faster animation, and for a timeline this long the
 // finished state is the whole thing written down.
+//
+// Nothing in here names a model. Everything model-specific arrives on `content`:
+// the scenes, the narration, the source bundle, and the Stage component that turns
+// a stage into a picture.
 
 function prefersReducedMotion(): boolean {
   return (
@@ -45,7 +49,9 @@ export default function Walkthrough({
   content: WalkthroughContent
   chapterSlug?: string
 }) {
-  const { chapters, scenes, Narration, sources, epilogue } = content
+  // Stage comes from the content, not from an import: it is the model's own mapping
+  // from its stage vocabulary to its diagrams. See walkthrough() in content/types.ts.
+  const { chapters, scenes, Narration, Stage, sources, epilogue } = content
   const navigate = useNavigate()
   const playerRef = useRef<HTMLDivElement>(null)
 
@@ -75,9 +81,9 @@ export default function Walkthrough({
   // staying up while its gradient is derived is exactly what you would leave on a
   // whiteboard. A held stage renders finished, never mid-animation.
   const held = useMemo(() => {
-    if (scene.stage.kind !== 'none') return { stage: scene.stage, progress }
+    if (draws(scene.stage)) return { stage: scene.stage, progress }
     for (let i = index - 1; i >= 0; i--) {
-      if (scenes[i].stage.kind !== 'none') return { stage: scenes[i].stage, progress: 1 }
+      if (draws(scenes[i].stage)) return { stage: scenes[i].stage, progress: 1 }
     }
     return null
   }, [scene, index, progress, scenes])
@@ -128,7 +134,7 @@ export default function Walkthrough({
 
       return (
         <>
-          {s.stage.kind !== 'none' && endsRun && (
+          {draws(s.stage) && endsRun && (
             <div className="walkthrough__stage walkthrough__stage--static figure-surface">
               <Stage stage={s.stage} progress={1} />
             </div>
@@ -137,7 +143,7 @@ export default function Walkthrough({
         </>
       )
     },
-    [scenes, sources],
+    [scenes, sources, Stage],
   )
 
   return (
