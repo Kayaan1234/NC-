@@ -73,7 +73,7 @@ function Plot() {
     <g>
       {/* Axes through the origin, since the data is the unit square and the
           reader is reading coordinates off them. */}
-      <g opacity="0.75">
+      <g className="fig-axis">
         <path d={`M${s.left} ${y0}H${s.right - 6}`} />
         <path d={`M${s.right - 6} ${y0}l-5 -3.5v7z`} fill="currentColor" stroke="none" />
         <path d={`M${x0} ${s.bottom}V${s.top + 6}`} />
@@ -81,7 +81,7 @@ function Plot() {
       </g>
 
       {/* Ticks at 0 and 1 only: those are the only values XOR takes. */}
-      <g opacity="0.75">
+      <g className="fig-axis">
         {[0, 1].map((t) => (
           <g key={`x${t}`}>
             <path d={`M${s.sx(t)} ${y0}v4`} />
@@ -172,7 +172,7 @@ function Frame({ title, id, children }: { title: string; id: string; children: R
       vectorEffect="non-scaling-stroke"
     >
       <title id={id}>{title}</title>
-      <g fontFamily="var(--font-mono)" fontSize="11">
+      <g fontFamily="var(--font-fig)" fontSize="12">
         <Plot />
         {children}
       </g>
@@ -255,7 +255,7 @@ export function XorBoundary() {
         straight line can do better."
     >
       <g>
-        <path d={boundary(AREA, s, W1, W2, B)} strokeWidth="1.6" opacity="0.9" />
+        <path className="fig-subject" d={boundary(AREA, s, W1, W2, B)} strokeWidth="2.25" />
 
         {/* The line, named. A "predicts 0" label in the lower-left landed on top
             of the origin's own tick label — the corner it wants is the corner the

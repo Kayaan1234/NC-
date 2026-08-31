@@ -9,7 +9,7 @@
 // in a long article to change one number in a figure. The arithmetic lives next
 // door in matrix-geometry.ts; import from there when you need it.
 
-import type { ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
 import {
   CELL,
   LABEL_DROP,
@@ -148,7 +148,22 @@ export function Glyph({
   )
 }
 
-/** The standard figure shell: sizing, the accessible title, mono type. */
+/**
+ * The standard figure shell: sizing, the accessible title, mono type.
+ *
+ * `id` is a readable prefix rather than the id that reaches the DOM, and the reason
+ * is the walkthrough's "Read as text" view. That renders the whole timeline as one
+ * document, and a figure can legitimately appear in it twice: step1 shows MlpStack
+ * once when the plan is laid out and again in the MLP chapter, and LayerBackward
+ * across two separate runs of beats. With a hardcoded id both copies claim the same
+ * one, which is invalid, and aria-labelledby resolves to whichever came first, so the
+ * second figure borrows the first one's accessible name.
+ *
+ * Nothing looked wrong when that happened, because both copies had identical titles.
+ * It would start mattering the moment two different figures shared a prefix, and the
+ * text view is the accessibility path that justified deleting the prose pages, so it
+ * is worth being right rather than accidentally fine.
+ */
 export function Frame({
   id,
   title,
@@ -162,20 +177,22 @@ export function Frame({
   height: number
   children: ReactNode
 }) {
+  const titleId = `${id}-${useId()}`
+
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
       width={width}
       height={height}
       role="img"
-      aria-labelledby={id}
+      aria-labelledby={titleId}
       fill="none"
       stroke="currentColor"
       strokeOpacity="0.85"
       vectorEffect="non-scaling-stroke"
     >
-      <title id={id}>{title}</title>
-      <g fontFamily="var(--font-mono)" fontSize="12" strokeWidth="1.25">
+      <title id={titleId}>{title}</title>
+      <g fontFamily="var(--font-fig)" fontSize="13" strokeWidth="1.25">
         {children}
       </g>
     </svg>

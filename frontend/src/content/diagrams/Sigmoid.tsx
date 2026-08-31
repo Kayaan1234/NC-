@@ -1,4 +1,5 @@
 import { curve, scale, ticksNoZero, type PlotArea } from './plot'
+import { fadeIn, writeOn } from '../walkthrough/motion'
 
 // σ(x) = 1 / (1 + e^-x), plotted rather than drawn — see plot.ts.
 //
@@ -8,8 +9,14 @@ import { curve, scale, ticksNoZero, type PlotArea } from './plot'
 // surrounding prose is making about vanishing gradients.
 //
 // Every stroke is currentColor and every label fills with currentColor, so the
-// figure takes its colour from the prose it sits in. Nothing here hardcodes a
-// hex value: changing --text must not be able to leave a diagram invisible.
+// figure takes its colour from whatever encloses it. Nothing here hardcodes a
+// hex value: changing a token must not be able to leave a diagram invisible.
+//
+// Hierarchy is carried by the fig-* classes (components.css), which set `color`
+// on a group so every currentColor beneath follows. Scaffolding is fig-axis, the
+// function itself is fig-subject, and fig-accent is reserved for the one thing
+// the narration is pointing at right now — here, the tangent. Opacity is no
+// longer doing that job, which leaves it free to mean "not drawn yet".
 
 const AREA: PlotArea = {
   width: 460,
@@ -34,7 +41,20 @@ const HALO = {
   paintOrder: 'stroke' as const,
 }
 
-export default function Sigmoid() {
+/**
+ * `tangent` adds the line through the inflection with slope 0.25, for the beat of
+ * the step0 walkthrough that talks about the derivative. Off by default, so the
+ * figure renders exactly as it did before the walkthrough existed.
+ *
+ * `progress` draws the curve on, manim's ShowCreation, from the walkthrough clock.
+ * It defaults to 1 (fully drawn) so that every static use — the MDX figures, the
+ * "Read as text" view, a reduced-motion reader — gets the finished picture without
+ * knowing this prop exists.
+ */
+export default function Sigmoid({
+  tangent = false,
+  progress = 1,
+}: { tangent?: boolean; progress?: number } = {}) {
   const s = scale(AREA)
   const yZero = s.sy(0)
   const yOne = s.sy(1)
@@ -57,18 +77,18 @@ export default function Sigmoid() {
         at y equals one, passing through the point (0, 0.5).
       </title>
 
-      <g fontFamily="var(--font-mono)" fontSize="11">
+      <g fontFamily="var(--font-fig)" fontSize="12">
         {/* The upper asymptote. There is no dashed line at y=0 because the x axis
             already is y=0 — drawing both would put a dashed line underneath a
             solid one. */}
-        <g opacity="0.45" strokeDasharray="3 4">
+        <g className="fig-axis" opacity="0.7" strokeDasharray="3 4">
           <path d={`M${s.left} ${yOne}H${s.right}`} />
         </g>
 
         {/* Axes. The y axis sits at x=0 rather than at the frame's left edge,
             because the function is symmetric about it and the reader needs to see
             that. */}
-        <g opacity="0.75">
+        <g className="fig-axis">
           <path d={`M${s.left} ${yZero}H${s.right - 6}`} />
           <path d={`M${s.right - 6} ${yZero}l-5 -3.5v7z`} fill="currentColor" stroke="none" />
           <path d={`M${xZero} ${s.bottom}V${s.top + 6}`} />
@@ -79,7 +99,7 @@ export default function Sigmoid() {
             axis is left bare so the arrowhead and the "x" label have room, and a
             tick at 8 would otherwise sit underneath the label. Skipping 0 too —
             the axes already cross there and the y axis carries that label. */}
-        <g opacity="0.75">
+        <g className="fig-axis">
           {ticksNoZero(-6, 6, 2).map((t) => (
             <g key={t}>
               <path d={`M${s.sx(t)} ${yZero}v4`} />
@@ -88,7 +108,6 @@ export default function Sigmoid() {
                 y={yZero + 17}
                 textAnchor="middle"
                 fill="currentColor"
-                opacity="0.8"
                 style={HALO}
               >
                 {t}
@@ -100,7 +119,7 @@ export default function Sigmoid() {
         {/* y ticks at the two values that matter: the upper bound and the
             midpoint. 0 is omitted — its label would sit on the origin, colliding
             with the x axis it labels. */}
-        <g opacity="0.75">
+        <g className="fig-axis">
           {[0.5, 1].map((t) => (
             <g key={t}>
               <path d={`M${xZero} ${s.sy(t)}h-4`} />
@@ -109,7 +128,6 @@ export default function Sigmoid() {
                 y={s.sy(t) + 3.5}
                 textAnchor="end"
                 fill="currentColor"
-                opacity="0.8"
                 style={HALO}
               >
                 {t === 0.5 ? '0.5' : t}
@@ -118,30 +136,101 @@ export default function Sigmoid() {
           ))}
         </g>
 
-        {/* The curve itself. */}
-        <path d={curve(AREA, s, sigma)} strokeWidth="1.75" />
+        {/* The curve itself: the subject of the figure, and the only thing in it
+            drawn at full saturation. Thicker than the scaffolding by enough to
+            read as a different kind of line rather than a heavier one.
+
+            It draws itself on from the clock. The axes are already there when the
+            curve arrives, which is the ordering every 3B1B shot uses: build the
+            space first, then put the function into it. */}
+        <path
+          className="fig-subject"
+          d={curve(AREA, s, sigma)}
+          strokeWidth="2.25"
+          {...writeOn(progress)}
+        />
+
+        {/* The tangent at the inflection, drawn only when the prose is on the
+            derivative. Its slope IS 0.25, computed from the same scale as the
+            curve rather than eyeballed, so the claim in the narration is something
+            the reader can check against the axes.
+
+            Accent rather than subject: it is not what the figure is about, it is
+            what the narration is pointing at during one beat. That is the whole
+            distinction the two colours carry. */}
+        {tangent && (
+          <g className="fig-accent">
+            {(() => {
+              // y = 0.25x + 0.5, clipped to a span either side of the origin that
+              // stays inside the plot's y range.
+              const span = 1.7
+              const at = (x: number) => 0.25 * x + 0.5
+              return (
+                <path
+                  d={`M${s.sx(-span)} ${s.sy(at(-span))}L${s.sx(span)} ${s.sy(at(span))}`}
+                  strokeDasharray="5 4"
+                  strokeWidth="2"
+                />
+              )
+            })()}
+            <text
+              x={s.sx(2.1)}
+              y={s.sy(0.5) - 8}
+              fill="currentColor"
+              stroke="none"
+              fontSize="12"
+              style={HALO}
+            >
+              slope 0.25
+            </text>
+          </g>
+        )}
 
         {/* The inflection point, where σ(0) = 0.5 and the derivative is at its
-            maximum of 0.25. */}
-        <circle cx={xZero} cy={yHalf} r="3" fill="currentColor" stroke="none" />
+            maximum of 0.25. Part of the curve, so it takes the curve's colour. */}
+        {/* Fades in rather than drawing on: writeOn over a dot or a glyph reveals
+            it sliced down the middle, which reads as a rendering fault. manim
+            fades text in for exactly this reason. The delay puts the marker after
+            the curve it sits on. */}
+        <circle
+          className="fig-subject"
+          cx={xZero}
+          cy={yHalf}
+          r="3.5"
+          fill="currentColor"
+          stroke="none"
+          opacity={fadeIn(progress, 0.75, 0.25)}
+        />
 
+        {/* Axis labels in the maths face, italic, because that is what they are:
+            the same symbols the prose sets as $\sigma$ and $x$. Setting them in
+            KaTeX_Math means the label on the picture and the symbol in the
+            equation are now the identical glyph rather than two fonts' guesses
+            at the same letter. */}
         <text
+          className="fig-subject"
           x={s.right - 4}
           y={yOne - 8}
           textAnchor="end"
           fill="currentColor"
           stroke="none"
-          fontSize="12"
+          fontFamily="var(--font-fig-var)"
+          fontStyle="italic"
+          fontSize="15"
+          opacity={fadeIn(progress, 0.7, 0.3)}
         >
           σ(x)
         </text>
         <text
+          className="fig-axis"
           x={s.right}
           y={yZero + 17}
           textAnchor="end"
           fill="currentColor"
           stroke="none"
-          opacity="0.8"
+          fontFamily="var(--font-fig-var)"
+          fontStyle="italic"
+          fontSize="14"
         >
           x
         </text>

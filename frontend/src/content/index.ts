@@ -1,45 +1,71 @@
 // Registry of authored "learn" content, keyed by backend model_id (the same id the
 // menu links to and the training page reads from the URL). A model with no entry
-// here simply has no learn flow: its menu card links straight to training. Adding a
-// model's explanation is one entry here plus its .mdx pages — see content/README.md.
+// here simply has no learn flow: its menu card links straight to training.
+//
+// Two shapes are supported — see types.ts — and both models are currently the same
+// one: a narrated walkthrough, one timeline with chapters that seek. The paged .mdx
+// shape is still live and is what a new model should start as; step0 and step1 were
+// both written that way first. Adding either is one entry here plus its content
+// files — see content/README.md.
 
-import type { ModelContent } from './types'
-import step0Overview from './step0/1-overview.mdx'
-import step0Math from './step0/2-math.mdx'
-import step0Logreg from './step0/3-logistic_regression.mdx'
-import step0Main from './step0/4-train-loop_and_the_data.mdx'
-import step1Overview from './step1/1-overview.mdx'
-import step1Matrix from './step1/2-matrix.mdx'
-import step1Math from './step1/3-math.mdx'
-import step1Layer from './step1/4-layer.mdx'
-import step1Mlp from './step1/5-mlp.mdx'
-import step1Main from './step1/6-main.mdx'
+import { walkthrough, type ModelContent } from './types'
+import { CHAPTERS as step0Chapters, SCENES as step0Scenes } from './step0/walkthrough'
+import { STEP0_ABSTRACTION } from './step0/abstraction'
+import { STEP0_SOURCES } from './step0/source'
+import Step0Stage from '../components/walkthrough/Step0Stage'
+import Step0Narration from './step0/narration.mdx'
+import Step0Snippets from './step0/abstraction.mdx'
+import { CHAPTERS as step1Chapters, SCENES as step1Scenes } from './step1/walkthrough'
+import { STEP1_ABSTRACTION } from './step1/abstraction'
+import { STEP1_SOURCES } from './step1/source'
+import Step1Stage from '../components/walkthrough/Step1Stage'
+import Step1Narration from './step1/narration.mdx'
+import Step1Snippets from './step1/abstraction.mdx'
 
 export const MODEL_CONTENT: Record<string, ModelContent> = {
-  step0: {
+  // The chapter slugs are the ones step0's four .mdx pages used, so every existing
+  // /training/step0/learn/:slug link still resolves. It now seeks to that chapter's
+  // timestamp instead of loading a page.
+  step0: walkthrough({
     name: 'Single Neuron (Logistic Regression)',
-    sections: [
-      { slug: 'overview', title: 'Overview', Body: step0Overview },
-      { slug: 'math', title: 'math.hpp', Body: step0Math },
-      { slug: 'logistic_regression', title: 'logistic_regression.hpp', Body: step0Logreg },
-      { slug: 'main', title: 'main.cpp', Body: step0Main },
-    ],
-  },
-  // In dependency order (matrix before layer, because a layer is two matrices;
-  // layer before MLP, because an MLP is a stack of layers). grad_check.hpp has
-  // no page of its own, matching step0, where it also ships in the source and is
-  // covered in a paragraph rather than a chapter — see the MLP page.
-  step1: {
+    chapters: step0Chapters,
+    scenes: step0Scenes,
+    Stage: Step0Stage,
+    Narration: Step0Narration,
+    sources: STEP0_SOURCES,
+    // The closing page: the same neuron as a Python one-liner, and every decision
+    // that one-liner made without asking. `python` is a slug alongside the chapter
+    // slugs, so it must stay distinct from all of them.
+    epilogue: {
+      slug: 'python',
+      title: 'The same model in Python',
+      abstraction: STEP0_ABSTRACTION,
+      Snippets: Step0Snippets,
+    },
+  }),
+  // Chapters in dependency order (matrix before layer, because a layer is two
+  // matrices; layer before MLP, because an MLP is a stack of layers), and the slugs
+  // are the ones step1's six .mdx pages used, so old links still resolve.
+  //
+  // grad_check.hpp has no chapter of its own. It ships in the source and gets one
+  // beat in the MLP chapter, which is the right weight for it.
+  step1: walkthrough({
     name: 'Multilayer Perceptron',
-    sections: [
-      { slug: 'overview', title: 'Overview', Body: step1Overview },
-      { slug: 'matrix', title: 'matrix.hpp', Body: step1Matrix },
-      { slug: 'math', title: 'math.hpp', Body: step1Math },
-      { slug: 'layer', title: 'layer.hpp', Body: step1Layer },
-      { slug: 'mlp', title: 'MLP.hpp', Body: step1Mlp },
-      { slug: 'main', title: 'main.cpp', Body: step1Main },
-    ],
-  },
+    chapters: step1Chapters,
+    scenes: step1Scenes,
+    Stage: Step1Stage,
+    Narration: Step1Narration,
+    sources: STEP1_SOURCES,
+    // Same closing page as step0's, one model up: the same MLP as four lines of
+    // Python, and every decision those four lines made without asking. `python` is a
+    // slug alongside the chapter slugs, so it must stay distinct from all of them.
+    epilogue: {
+      slug: 'python',
+      title: 'The same model in Python',
+      abstraction: STEP1_ABSTRACTION,
+      Snippets: Step1Snippets,
+    },
+  }),
 }
 
 export function getModelContent(id: string | undefined): ModelContent | undefined {

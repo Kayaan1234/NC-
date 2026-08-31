@@ -8,3 +8,16 @@ declare module '*.mdx' {
   const MDXComponent: ComponentType
   export default MDXComponent
 }
+
+// C++ imported with `?highlight`, served by the local plugin in
+// vite-plugin-cpp-highlight.ts. `raw` is the file verbatim, for slicing a function
+// out of it by signature; `lines` is the same file syntax-highlighted at build time,
+// one HTML string per line, index-aligned with `raw.split('\n')`.
+//
+// Vite's own client types declare `*?raw` but nothing declares a custom query, so
+// this one has to be written out. It is the same reason `*.mdx` above needs a
+// declaration: the plugin does the work, TypeScript just needs telling the shape.
+declare module '*?highlight' {
+  export const raw: string
+  export const lines: string[]
+}

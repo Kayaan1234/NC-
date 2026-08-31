@@ -11,10 +11,22 @@
 
 # ---- build the SPA bundle. VITE_API_URL is baked in HERE, at BUILD time.
 FROM node:22-alpine AS build
-WORKDIR /app
+# Built under /src rather than /app so backend/ can sit beside frontend/ exactly as
+# it does in the repo: the learn walkthroughs import the real C++ with `?highlight`
+# at build time (frontend/src/content/step*/source.ts), by a path relative to the
+# importing module. Without the copies below, `npm run build` fails here while
+# passing on a laptop, and CI would not catch it: the frontend job runs typecheck
+# and unit tests only, never a build. One COPY per model with a walkthrough.
+WORKDIR /src/frontend
 COPY frontend/package*.json ./
 RUN npm ci
 COPY frontend/ ./
+COPY backend/services/Step0/ /src/backend/services/Step0/
+# Sources only, NOT the directory. Step1 keeps 52MB of MNIST idx files in data/ and
+# .dockerignore does not exclude them, so copying the directory would drag all of it
+# into a stage that only wants five text files. Same reason the ccbuild stage below
+# spells out the globs.
+COPY backend/services/Step1/*.hpp backend/services/Step1/*.cpp /src/backend/services/Step1/
 # "" => the SPA calls /auth, /users, ... on its OWN origin (same-origin nginx).
 ARG VITE_API_URL=""
 ENV VITE_API_URL=$VITE_API_URL
@@ -88,7 +100,7 @@ USER root
 RUN apt-get update \
  && apt-get install -y --no-install-recommends nginx gettext-base \
  && rm -rf /var/lib/apt/lists/*
-COPY --from=build /app/dist /usr/share/nginx/html
+COPY --from=build /src/frontend/dist /usr/share/nginx/html
 COPY docker/nginx.conf /etc/nginx/nginx.conf
 COPY docker/nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY docker/web-entrypoint.sh /web-entrypoint.sh

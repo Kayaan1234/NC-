@@ -85,7 +85,7 @@ export default function MnistSample() {
         in column five, because the image is labelled five.
       </title>
 
-      <g fontFamily="var(--font-mono)" fontSize="12" strokeWidth="1.25">
+      <g fontFamily="var(--font-fig)" fontSize="13" strokeWidth="1.25">
         {/* Only the non-zero pixels get a rect. MNIST is mostly background, so
             this is roughly 150 shapes rather than 784, and the empty border of
             the image is exactly as visible either way. */}

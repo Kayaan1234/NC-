@@ -269,6 +269,36 @@ a.learn-rail__item:hover {
   text-decoration: none;
 }
 
+/* A walkthrough's rail entries seek the timeline instead of navigating, so they
+ * are buttons rather than links. They have to look identical to the links above:
+ * the rail is one list, and a reader should not be able to tell which model's
+ * flow they are in from the shape of its chapter list. */
+button.learn-rail__item {
+  background: none;
+  border-top: none;
+  border-right: none;
+  border-bottom: none;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+
+/* forms.css gives every <button> a raised background on hover, and its selector
+ * (button:hover:not(:disabled)) outranks a single class. A rail entry has to keep
+ * looking like the links beside it, so the background is turned off explicitly
+ * rather than left to specificity. */
+button.learn-rail__item:hover {
+  color: var(--text);
+  background: none;
+  border-color: transparent;
+}
+
+button.learn-rail__item.learn-rail__item--current:hover {
+  border-left-color: var(--text);
+}
+
 .learn-rail__item--current {
   border-left-color: var(--text);
   color: var(--text);

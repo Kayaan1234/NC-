@@ -5,6 +5,7 @@ import rehypeShiki from '@shikijs/rehype'
 import rehypeKatex from 'rehype-katex'
 import remarkMath from 'remark-math'
 import rehypeTodoCue from './src/content/rehype-todo-cue'
+import cppHighlight from './vite-plugin-cpp-highlight'
 import { ncDark } from './src/styles/shiki-theme'
 
 // Single-origin dev: the SPA is served from :5173 and calls the API with
@@ -29,6 +30,10 @@ export default defineConfig({
   // out of the npm package rather than a CDN — the privacy policy states there are
   // no third-party scripts, so nothing in this app may fetch off-origin.
   plugins: [
+    // The step0 walkthrough shows the real Step0 C++, imported from outside this
+    // root with `?highlight` and syntax-highlighted here rather than in the browser,
+    // for the same build-time reason the MDX pipeline below highlights its fences.
+    cppHighlight(),
     {
       enforce: 'pre',
       ...mdx({
