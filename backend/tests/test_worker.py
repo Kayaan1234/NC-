@@ -292,6 +292,62 @@ def test_reclaiming_a_stale_job_lets_its_user_queue_again(client, outbox, db_ses
 
 
 # --------------------------------------------------------------------------- #
+# purge_finished_jobs — age is the only axis here; a finished job has no
+# liveness left to reclaim, only an age to age out
+# --------------------------------------------------------------------------- #
+
+def test_a_finished_job_older_than_retention_is_purged(db_session, user_id):
+    old = worker._utcnow() - timedelta(days=settings.JOB_RETENTION_DAYS + 1)
+    job = _job(db_session, user_id, status=JobStatus.SUCCEEDED.value, finished_at=old)
+
+    assert worker.purge_finished_jobs(db_session) == 1
+
+    remaining = db_session.execute(
+        select(TrainingJob).where(TrainingJob.id == job.id)
+    ).scalar_one_or_none()
+    assert remaining is None
+
+
+@pytest.mark.parametrize("status", [JobStatus.SUCCEEDED.value, JobStatus.FAILED.value])
+def test_a_finished_job_within_retention_is_kept(db_session, user_id, status):
+    recent = worker._utcnow() - timedelta(days=1)
+    job = _job(db_session, user_id, status=status, finished_at=recent)
+
+    assert worker.purge_finished_jobs(db_session) == 0
+
+    db_session.refresh(job)
+    assert job.status == status
+
+
+@pytest.mark.parametrize("status", [JobStatus.QUEUED.value, JobStatus.RUNNING.value])
+def test_a_queued_or_running_job_is_never_purged_however_old(db_session, user_id, status):
+    """CURRENT BEHAVIOUR should never change: only succeeded/failed jobs are in
+    scope, however old finished_at is contrived to be — a queued/running job in
+    the real world never has one set at all."""
+    ancient = worker._utcnow() - timedelta(days=365)
+    job = _job(db_session, user_id, status=status, finished_at=ancient)
+
+    assert worker.purge_finished_jobs(db_session) == 0
+
+    db_session.refresh(job)
+    assert job.status == status
+
+
+def test_purge_is_global_not_scoped_to_one_user(client_factory, outbox, db_session, user_id):
+    """Deliberately different from routers.train.clear_finished_jobs, which is
+    scoped to the caller's own rows: this purge is a background sweep with no
+    caller, so it must clear every eligible row regardless of owner."""
+    other = register_and_verify(client_factory(), outbox, username="bob", email="bob@example.com")
+    other_uid = db_session.execute(select(User.id).where(User.email == other["email"])).scalar_one()
+
+    old = worker._utcnow() - timedelta(days=settings.JOB_RETENTION_DAYS + 1)
+    _job(db_session, user_id, status=JobStatus.SUCCEEDED.value, finished_at=old)
+    _job(db_session, other_uid, status=JobStatus.FAILED.value, finished_at=old)
+
+    assert worker.purge_finished_jobs(db_session) == 2
+
+
+# --------------------------------------------------------------------------- #
 # release
 # --------------------------------------------------------------------------- #
 

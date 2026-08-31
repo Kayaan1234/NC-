@@ -101,6 +101,16 @@ class Settings(BaseSettings):
     # healthy; a 20-second job silent for 90s is dead. Do not tie this to
     # ModelSpec.timeout_seconds.
     JOB_HEARTBEAT_STALE_SECONDS: int = 90
+    # Finished (succeeded/failed) jobs older than this, measured from finished_at,
+    # are deleted automatically by the worker loop (see worker.purge_finished_jobs).
+    # Safe to delete outright: job result/stdout are plain DB columns (the
+    # container filesystem is ephemeral), so no external artifact is orphaned.
+    JOB_RETENTION_DAYS: int = 30
+    # How often the worker loop checks whether it's time to run that purge.
+    # Deliberately separate from JOB_RETENTION_DAYS: retention answers "how old",
+    # this answers "how often to check" — reusing the 30-day value here would mean
+    # the sweep might not run again for a month once it does.
+    JOB_RETENTION_PURGE_INTERVAL_SECONDS: int = 3600
 
     # Bridge feasibility engine (bridge-plan-v3.md). Runs on the worker like
     # training; the API only inserts bridge_jobs rows. Off by default for the
@@ -179,6 +189,13 @@ class Settings(BaseSettings):
     # A row left `sending` longer than this (its drainer died mid-delivery) is
     # swept back to `queued`. Must exceed a realistic Resend call + retry latency.
     EMAIL_OUTBOX_CLAIM_STALE_SECONDS: int = 300
+    # Dead-lettered (retries exhausted) outbox rows older than this are deleted by
+    # the email drain loop (see email_drain.purge_dead). Aged off created_at, not
+    # a dedicated "went dead" timestamp — there isn't one, and dead-lettering only
+    # happens after EMAIL_OUTBOX_MAX_ATTEMPTS exhausts its backoff, which is well
+    # under an hour with the settings above, negligible against a 30-day window.
+    EMAIL_OUTBOX_RETENTION_DAYS: int = 30
+    EMAIL_OUTBOX_RETENTION_PURGE_INTERVAL_SECONDS: int = 3600
 
     # Database
     DATABASE_URL: str

@@ -23,7 +23,7 @@ from backend.core.config import settings
 from backend.core.outbox import enqueue_email
 from backend.models.EmailOutbox import EmailOutbox, EmailOutboxStatus, EmailType, utcnow
 from backend.services import email_drain
-from backend.services.email_drain import _claim, _fail, drain_one, reclaim_stale
+from backend.services.email_drain import _claim, _fail, drain_one, purge_dead, reclaim_stale
 from backend.tests.helpers import register_and_verify
 
 
@@ -306,3 +306,42 @@ def test_reclaiming_is_idempotent_so_several_drainers_can_run_it(db_session):
 
     assert reclaim_stale(db_session) == 1
     assert reclaim_stale(db_session) == 0
+
+
+# --------------------------------------------------------------------------- #
+# purge_dead
+# --------------------------------------------------------------------------- #
+
+def test_a_dead_row_older_than_retention_is_purged(db_session):
+    row = _enqueue(db_session, EmailType.ACCOUNT_EXISTS, {"to_email": "a@b.com"})
+    row.status = EmailOutboxStatus.DEAD.value
+    row.created_at = utcnow() - timedelta(days=settings.EMAIL_OUTBOX_RETENTION_DAYS + 1)
+    db_session.commit()
+
+    assert purge_dead(db_session) == 1
+    assert _rows(db_session) == []
+
+
+def test_a_dead_row_within_retention_is_kept(db_session):
+    row = _enqueue(db_session, EmailType.ACCOUNT_EXISTS, {"to_email": "a@b.com"})
+    row.status = EmailOutboxStatus.DEAD.value
+    row.created_at = utcnow() - timedelta(days=1)
+    db_session.commit()
+
+    assert purge_dead(db_session) == 0
+    assert _rows(db_session)[0].status == EmailOutboxStatus.DEAD.value
+
+
+def test_a_queued_or_sending_row_is_never_purged_by_age(db_session):
+    """CURRENT BEHAVIOUR should never change: only `dead` rows are in scope,
+    however old created_at is contrived to be."""
+    ancient = utcnow() - timedelta(days=365)
+    queued = _enqueue(db_session, EmailType.ACCOUNT_EXISTS, {"to_email": "a@b.com"})
+    queued.created_at = ancient
+    sending = _enqueue(db_session, EmailType.ACCOUNT_EXISTS, {"to_email": "c@d.com"})
+    sending.status = EmailOutboxStatus.SENDING.value
+    sending.created_at = ancient
+    db_session.commit()
+
+    assert purge_dead(db_session) == 0
+    assert len(_rows(db_session)) == 2

@@ -25,7 +25,7 @@ import time
 from datetime import timedelta
 from types import FrameType
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from backend.core.config import settings
@@ -75,6 +75,32 @@ def reclaim_stale(db: Session) -> int:
     db.commit()
     if result.rowcount:
         logger.warning("reclaimed %d stale job(s)", result.rowcount)
+    return result.rowcount
+
+
+def purge_finished_jobs(db: Session) -> int:
+    """Delete succeeded/failed jobs whose finished_at is older than
+    JOB_RETENTION_DAYS.
+
+    Age-based, not the heartbeat-based liveness reclaim_stale does — a finished
+    job has nothing left to be alive or dead, only old. finished_at < cutoff
+    already excludes NULL rows under SQL's three-valued logic, so a terminal job
+    that somehow never got a finished_at stamp is never purged; the explicit
+    status filter is kept for readability, mirroring reclaim_stale's style.
+    """
+    cutoff = _utcnow() - timedelta(days=settings.JOB_RETENTION_DAYS)
+    result = db.execute(
+        delete(TrainingJob).where(
+            TrainingJob.status.in_([JobStatus.SUCCEEDED.value, JobStatus.FAILED.value]),
+            TrainingJob.finished_at < cutoff,
+        )
+    )
+    db.commit()
+    if result.rowcount:
+        logger.info(
+            "purged %d finished job(s) older than %d day(s)",
+            result.rowcount, settings.JOB_RETENTION_DAYS,
+        )
     return result.rowcount
 
 
@@ -211,10 +237,11 @@ def main() -> None:
     # (they import sklearn), so it runs the stricter form of the bridge gate.
     check_bridge_registry(require_probe_impls=True)
 
-    logger.info("worker started (poll=%ss, heartbeat=%ss, stale=%ss)",
+    logger.info("worker started (poll=%ss, heartbeat=%ss, stale=%ss, retention=%sd)",
                 settings.JOB_POLL_INTERVAL_SECONDS,
                 settings.JOB_HEARTBEAT_SECONDS,
-                settings.JOB_HEARTBEAT_STALE_SECONDS)
+                settings.JOB_HEARTBEAT_STALE_SECONDS,
+                settings.JOB_RETENTION_DAYS)
 
     # One long-lived session: this is a single-threaded loop, and it owns its own
     # connection rather than borrowing a request-scoped one (there is no request).
@@ -233,6 +260,7 @@ def main() -> None:
 
     db = SessionLocal()
     current: TrainingJob | None = None
+    last_job_purge = 0.0
     try:
         while not _shutdown:
             try:
@@ -245,6 +273,14 @@ def main() -> None:
                 if not _shutdown and not bridge_thread.is_alive():
                     logger.error("bridge drain thread died; restarting")
                     bridge_thread = _start_bridge_thread()
+
+                # Runs regardless of TRAINING_ENABLED, same reasoning as the email
+                # outbox above: historical jobs still need to age out even while
+                # new training is off.
+                mono = time.monotonic()
+                if mono - last_job_purge >= settings.JOB_RETENTION_PURGE_INTERVAL_SECONDS:
+                    purge_finished_jobs(db)
+                    last_job_purge = mono
 
                 if not settings.TRAINING_ENABLED:
                     # Email-only mode: the queue is never fed (the API 503s POSTs
