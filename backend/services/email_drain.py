@@ -23,7 +23,7 @@ import time
 from datetime import timedelta
 from typing import Any, Callable
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from backend.core.config import settings
@@ -182,6 +182,26 @@ def reclaim_stale(db: Session) -> int:
     return result.rowcount
 
 
+def purge_dead(db: Session) -> int:
+    """Delete `dead` rows older than EMAIL_OUTBOX_RETENTION_DAYS (age measured
+    from created_at — see the setting's docstring for why there's no separate
+    "went dead" timestamp to use instead)."""
+    cutoff = utcnow() - timedelta(days=settings.EMAIL_OUTBOX_RETENTION_DAYS)
+    result = db.execute(
+        delete(EmailOutbox).where(
+            EmailOutbox.status == EmailOutboxStatus.DEAD.value,
+            EmailOutbox.created_at < cutoff,
+        )
+    )
+    db.commit()
+    if result.rowcount:
+        logger.info(
+            "purged %d dead email row(s) older than %d day(s)",
+            result.rowcount, settings.EMAIL_OUTBOX_RETENTION_DAYS,
+        )
+    return result.rowcount
+
+
 def run(should_stop: Callable[[], bool]) -> None:
     """The drain loop. Owns its own session (a thread must not share the training
     loop's), exits when should_stop() is true, and never propagates an exception —
@@ -192,9 +212,11 @@ def run(should_stop: Callable[[], bool]) -> None:
     thing that ever delivers a signup verification email, and a session wedged on
     a dropped connection would stop that silently, with registrations queueing up
     and going `dead` after their backoff. See database.reset_session."""
-    logger.info("email drain started (poll=%ss)", settings.EMAIL_OUTBOX_POLL_SECONDS)
+    logger.info("email drain started (poll=%ss, retention=%sd)",
+                settings.EMAIL_OUTBOX_POLL_SECONDS, settings.EMAIL_OUTBOX_RETENTION_DAYS)
     db = SessionLocal()
     last_reclaim = 0.0
+    last_purge = 0.0
     try:
         while not should_stop():
             try:
@@ -202,6 +224,9 @@ def run(should_stop: Callable[[], bool]) -> None:
                 if mono - last_reclaim >= settings.EMAIL_OUTBOX_CLAIM_STALE_SECONDS:
                     reclaim_stale(db)
                     last_reclaim = mono
+                if mono - last_purge >= settings.EMAIL_OUTBOX_RETENTION_PURGE_INTERVAL_SECONDS:
+                    purge_dead(db)
+                    last_purge = mono
                 if not drain_one(db):
                     time.sleep(settings.EMAIL_OUTBOX_POLL_SECONDS)
             except Exception:  # noqa: BLE001
