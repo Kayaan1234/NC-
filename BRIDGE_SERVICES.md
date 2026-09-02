@@ -123,12 +123,15 @@ All bridge keys are `Optional` in `Settings` so the web container boots without
 them; `check_bridge_registry()` refuses to boot only if `BRIDGE_ENABLED=true`
 while a required key is missing.
 
-| Variable | Needed for | Status |
+**Status below is this dev machine's `backend/.env`, not a claim about prod.** For
+the AWS deployment's secrets/rollout, see §7.
+
+| Variable | Needed for | Status (local dev only) |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | planner / judge / summary | ✅ in backend/.env |
 | `VOYAGER_API_KEY` | Voyage embeddings (passed explicitly; the SDK's own `VOYAGE_API_KEY` lookup never runs) | ✅ in backend/.env |
-| `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` / `LANGFUSE_HOST` | tracing (free account at cloud.langfuse.com) | ⬜ not yet — tracing no-ops cleanly until set |
-| `KAGGLE_USERNAME` / `KAGGLE_KEY` | the Kaggle scout (kaggle.com/settings → API) | ✅ in backend/.env, scout live |
+| `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` / `LANGFUSE_HOST` | tracing (free account at cloud.langfuse.com) | ✅ in backend/.env; **required** everywhere `BRIDGE_ENABLED=true`, including prod (`HOST` excluded — it has a real code default) |
+| `KAGGLE_USERNAME` / `KAGGLE_KEY` | the Kaggle scout (kaggle.com/settings → API) | ✅ in backend/.env, scout live; **required** everywhere `BRIDGE_ENABLED=true`, including prod |
 | `BRIDGE_ENABLED` | the live path (router + drain) | default **false**, set true in backend/.env locally; CLI works regardless |
 | `RATE_LIMIT_BRIDGE`, `BRIDGE_VERDICT_SPEND_CEILING_USD`, `BRIDGE_DAILY_SPEND_CAP_USD`, `BRIDGE_RUN_TIMEOUT_SECONDS`, `BRIDGE_JOB_*`, `BRIDGE_SCOUT_CONCURRENCY`, `BRIDGE_MAX_JUDGED_CANDIDATES` | tuning | sensible defaults in `core/config.py` |
 
@@ -242,13 +245,17 @@ verification ran against.
 The bridge rides the existing two-image topology (`DEPLOYMENT_GUIDE.md`): the
 single-container web service on App Runner, the worker on Fargate. Additions:
 
-1. **Secrets, in BOTH places** — this is the step that bites (§12): add
-   `ANTHROPIC_API_KEY`, `VOYAGER_API_KEY`, and (optionally) the two Langfuse
-   keys + Kaggle pair to Secrets Manager, then reference them in **both**
+1. **Secrets, in BOTH places** — this is the step that bites (§12): add all six of
+   `ANTHROPIC_API_KEY`, `VOYAGER_API_KEY`, `KAGGLE_USERNAME`, `KAGGLE_KEY`,
+   `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` to Secrets Manager — required, not
+   optional, in this project — then reference them in **both**
    `apprunner-web.json` → `RuntimeEnvironmentSecrets` **and** the Fargate
-   `worker-taskdef.json` → `secrets`. `Settings()` tolerates their absence
-   (fields are Optional), but the worker will refuse to boot with
-   `BRIDGE_ENABLED=true` and keys missing — by design.
+   `worker-taskdef.json` → `secrets`, **and** add their ARNs to both IAM
+   `read-secrets` role policies (an explicit ARN allowlist, not a wildcard — a
+   secret missing from it fails at container start with `AccessDenied`, not at
+   `create-secret` time). `Settings()` tolerates their absence at import (fields
+   are Optional), but `check_bridge_registry()` refuses to boot **either**
+   service with `BRIDGE_ENABLED=true` and any of the six missing — by design.
 2. **RDS pgvector** — once, as the RDS master user:
    `CREATE EXTENSION vector;` on the app database. pgvector is on RDS's
    supported-extension list; the migration's `IF NOT EXISTS` then no-ops.

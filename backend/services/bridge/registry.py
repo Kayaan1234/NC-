@@ -450,9 +450,18 @@ def check_bridge_registry(require_probe_impls: bool = False) -> None:
         # The web container may boot without bridge keys (they're worker
         # concerns), but ENABLING the feature without them would accept jobs
         # nothing can ever run — fail loudly at boot instead.
+        #
+        # Kaggle and Langfuse joined this list once this project started actually
+        # relying on the Kaggle scout and on tracing, rather than treating them as
+        # nice-to-haves that silently no-op when unset. LANGFUSE_HOST is excluded:
+        # it has a real default (cloud.langfuse.com), so it's never "missing".
         missing_keys = [
             name
-            for name in ("ANTHROPIC_API_KEY", "VOYAGER_API_KEY")
+            for name in (
+                "ANTHROPIC_API_KEY", "VOYAGER_API_KEY",
+                "KAGGLE_USERNAME", "KAGGLE_KEY",
+                "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY",
+            )
             if not getattr(settings, name)
         ]
         if missing_keys:
