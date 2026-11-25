@@ -82,6 +82,14 @@ class TestFitLine:
         assert line == plain._UNPROBED_FALLBACK
         assert raw not in line
 
+    def test_no_dataset_gets_its_own_sentence_not_the_raw_reason(self):
+        raw = "no candidate dataset survived the gates, so there was nothing to run the fit check on"
+        line = plain.fit_line(
+            _artefact({"probed": False, "code": "no_dataset", "unconfirmed_reason": raw}),
+            BRIDGE_SPECS["step1"],
+        )
+        assert line == plain._UNPROBED_WORDING["no_dataset"]
+
     def test_a_step_with_no_probe_keeps_its_curated_reason(self):
         """The opposite failure. BridgeSpec.no_probe_reason is hand-written for
         students and §4 requires it be printed, so it must NOT be swapped for
