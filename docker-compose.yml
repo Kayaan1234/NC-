@@ -54,12 +54,13 @@ services:
   # freely: `docker compose up --scale worker=3` is safe — jobs are claimed with
   # SELECT ... FOR UPDATE SKIP LOCKED, so no two workers ever collide.
   #
-  # mem_limit mirrors the >=1GB the deployed task needs. Step1's MNIST loader
-  # materialises the whole idx file as doubles before applying --limit, so any
-  # MNIST run peaks near 500MB; the limit is here so a local run that overshoots
-  # gets OOM-killed in the container instead of swapping the host.
+  # mem_limit mirrors the 2GB the deployed Fargate task is sized at. Step1's MNIST
+  # loader materialises the whole idx file as doubles before applying --limit, so a
+  # run at the registry ceiling peaks near 700MB (~840MB with the Python worker); the
+  # limit is here so a local run that overshoots gets OOM-killed in the container
+  # instead of swapping the host.
   worker:
-    mem_limit: 1500m
+    mem_limit: 2048m
     build:
       context: .
       dockerfile: Dockerfile
