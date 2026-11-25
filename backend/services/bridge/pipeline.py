@@ -53,6 +53,13 @@ logger = logging.getLogger("backend.bridge.pipeline")
 
 MAX_FINALISTS = 3
 
+# A stored pool's candidates are already relevance-filtered, so a pool built by
+# an older judge carries that judge's mistakes forever — reuse never re-judges.
+# Bump this whenever the judge's criteria change; a pool stamped with any other
+# value (or none) is rebuilt in place on next use. 2: the judge stopped seeing
+# the step capability and rejecting on-topic data for not "demonstrating" it.
+POOL_VERSION = 2
+
 
 class PipelineTimeout(Exception):
     pass
@@ -301,10 +308,13 @@ def _get_or_build_pool(db, job, spec: BridgeSpec, ledger, log, deadline) -> dict
             BridgeCandidatePool.modality == spec.modality.value,
         )
     ).scalars().first()
-    if row is not None:
+    if row is not None and row.pool.get("version") == POOL_VERSION:
         log.event(f"reusing the existing candidate pool "
                   f"({len(row.pool['candidates'])} candidates)", stage="scouting")
         return dict(row.pool)
+    if row is not None:
+        log.event("existing candidate pool predates the current relevance judge — "
+                  "searching again", stage="scouting")
 
     deadline.check("planning")
     log.event("planning search queries", stage="planning")
@@ -330,12 +340,18 @@ def _get_or_build_pool(db, job, spec: BridgeSpec, ledger, log, deadline) -> dict
     card_index.upsert_cards(db, ledger, relevant, spec.modality)
 
     pool = {
+        "version": POOL_VERSION,
         "queries": queries,
         "candidates": relevant,
         "rejected_relevance": rejections_stub["relevance"]["examples"],
     }
-    db.add(BridgeCandidatePool(topic_slug=job.topic_slug, modality=spec.modality.value,
-                               pool=pool))
+    if row is None:
+        db.add(BridgeCandidatePool(topic_slug=job.topic_slug, modality=spec.modality.value,
+                                   pool=pool))
+    else:
+        # Overwrite in place: (topic_slug, modality) is unique.
+        row.pool = pool
+        row.last_verified = _utcnow()
     db.commit()
     return pool
 
@@ -351,6 +367,7 @@ def _update_pool(db, job, spec: BridgeSpec, queries, candidates, rejections) -> 
     ).scalars().first()
     if row is not None:
         row.pool = {
+            "version": POOL_VERSION,
             "queries": list(queries),
             "candidates": candidates,
             "rejected_relevance": rejections["relevance"]["examples"],

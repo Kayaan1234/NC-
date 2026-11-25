@@ -81,10 +81,26 @@ def inspect_hf_dataset(dataset_id: str) -> dict:
     stats: dict = {}
     if size:
         inspection["partial"] = bool(size.get("partial"))
-        dataset_size = (size.get("size") or {}).get("dataset") or {}
-        stats["num_rows"] = dataset_size.get("num_rows")
-        stats["num_bytes"] = dataset_size.get("num_bytes_original_files")
-        stats["num_columns"] = dataset_size.get("num_columns")
+        size_body = size.get("size") or {}
+        dataset_size = size_body.get("dataset") or {}
+        if size.get("failed") and not size_body.get("configs"):
+            # The size job failed: the dataset-level block is all-zero
+            # placeholders, not a measurement. Reading num_rows=0 here
+            # rejected real datasets as "too few rows (0)". Unknown is the
+            # honest record — Gate 3 says "row count unavailable".
+            stats["num_rows"] = None
+            stats["num_bytes"] = None
+        else:
+            stats["num_rows"] = dataset_size.get("num_rows")
+            stats["num_bytes"] = dataset_size.get("num_bytes_original_files")
+        # num_columns lives on the per-config entries, never the dataset block.
+        # Take the chosen config's; left unset otherwise so the sample-row
+        # fallback below can fill it.
+        config_size = next(
+            (c for c in size_body.get("configs") or [] if c.get("config") == config), None
+        )
+        if config_size and config_size.get("num_columns") is not None:
+            stats["num_columns"] = config_size["num_columns"]
 
     stats["num_splits"] = len({s["split"] for s in splits})
     _enrich_from_statistics(dataset_id, config, split, stats)
