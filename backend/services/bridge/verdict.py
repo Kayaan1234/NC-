@@ -98,6 +98,20 @@ def _fit_section(spec: BridgeSpec, context: dict) -> dict:
         return {"probed": False, "code": probe.get("code"),
                 "unconfirmed_reason": probe["reason"],
                 "corpus_stats": (context.get("inspection") or {}).get("stats", {})}
+    if spec.probe is not None:
+        # The step HAS a probe, but it never ran: no candidate survived the
+        # gates, so there was nothing to fit. no_probe_reason is None for
+        # these steps by construction (the registry forbids both), so it
+        # cannot stand in here — this case states its own reason.
+        return {
+            "probed": False,
+            "code": "no_dataset",
+            "unconfirmed_reason": (
+                "no candidate dataset survived the gates, so there was nothing "
+                "to run the fit check on"
+            ),
+            "corpus_stats": (context.get("inspection") or {}).get("stats", {}),
+        }
     return {
         "probed": False,
         "unconfirmed_reason": spec.no_probe_reason,

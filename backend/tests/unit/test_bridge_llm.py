@@ -15,12 +15,13 @@ from backend.services.bridge.llm import (
     _thinking_param,
     cost_from_usage,
 )
-from backend.services.bridge.registry import BRIDGE_SPECS, LLM_BUDGETS
+from backend.services.bridge.registry import BRIDGE_SPECS, LLM_BUDGETS, DataRequirement
 from backend.services.bridge.verdict import (
     BUILDABLE_AFTER_COLLECTION,
     BUILDABLE_NOW,
     NOT_AT_HOBBY_SCALE,
     NOT_AT_THIS_STEP,
+    _fit_section,
     decide_verdict_value,
 )
 
@@ -172,6 +173,31 @@ class TestCritic:
         artefact["verdict"] = BUILDABLE_NOW
         with pytest.raises(critic.CriticError, match="unconfirmed_reason"):
             critic.check(artefact, BRIDGE_SPECS["step1"], context)
+
+    @pytest.mark.parametrize("model_id", sorted(
+        k for k, s in BRIDGE_SPECS.items()
+        if s.data_requirement == DataRequirement.OWN_ASSESSMENT
+    ))
+    def test_no_surviving_dataset_still_passes_the_critic(self, model_id):
+        """The production regression: every candidate rejected at the gates
+        means no probe report. For a step WITH a probe, no_probe_reason is None
+        by construction, so the fit section must state its own reason — or
+        every no-dataset topic on steps 0/1/3 dies as a 'pipeline bug'."""
+        spec = BRIDGE_SPECS[model_id]
+        context = {
+            "pool_candidates": [],
+            "evidence": {"rejections": {}},
+            "api_assessments": [],
+            "nearest_domain": None,
+        }
+        artefact = {
+            "verdict": decide_verdict_value(context),
+            "fit": _fit_section(spec, context),
+            "difficulty": None,
+            "evidence": context["evidence"],
+        }
+        assert artefact["verdict"] == NOT_AT_HOBBY_SCALE
+        critic.check(artefact, spec, context)
 
     def test_inherited_fit_must_be_copied_unchanged(self):
         upstream = {"fit": {"probed": True}, "evidence": {"a": 1}}

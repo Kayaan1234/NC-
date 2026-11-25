@@ -60,6 +60,9 @@ _UNPROBED_WORDING = {
     "too_slow": (
         "This one was too slow to test in the time I give it, so treat the fit as unknown."
     ),
+    "no_dataset": (
+        "I did not find a dataset I could use, so there was nothing to test the fit on."
+    ),
     # Note what is NOT here: "fit_failed". It is a catch-all for anything sklearn
     # raised, and the causes have nothing in common — an all-one-class sample and
     # a column of infinities land in the same bucket. Any sentence naming a cause
